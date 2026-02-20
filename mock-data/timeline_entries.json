@@ -1,0 +1,17 @@
+[
+  { "t": 1740153600000, "phase": "infiltrate", "stress": 0.20, "focus": 0.60, "adaptation": null },
+  { "t": 1740153601000, "phase": "infiltrate", "stress": 0.25, "focus": 0.55, "adaptation": null },
+  { "t": 1740153602000, "phase": "infiltrate", "stress": 0.35, "focus": 0.45, "adaptation": null },
+  { "t": 1740153603000, "phase": "infiltrate", "stress": 0.50, "focus": 0.30, "adaptation": "ui_simplified" },
+  { "t": 1740153604000, "phase": "infiltrate", "stress": 0.55, "focus": 0.25, "adaptation": null },
+  { "t": 1740153605000, "phase": "infiltrate", "stress": 0.45, "focus": 0.35, "adaptation": null },
+  { "t": 1740153610000, "phase": "vault", "stress": 0.60, "focus": 0.20, "adaptation": null },
+  { "t": 1740153615000, "phase": "vault", "stress": 0.72, "focus": 0.15, "adaptation": "voice_calmed" },
+  { "t": 1740153620000, "phase": "vault", "stress": 0.80, "focus": 0.10, "adaptation": "ui_simplified" },
+  { "t": 1740153625000, "phase": "vault", "stress": 0.65, "focus": 0.30, "adaptation": null },
+  { "t": 1740153630000, "phase": "vault", "stress": 0.50, "focus": 0.45, "adaptation": "options_expanded" },
+  { "t": 1740153635000, "phase": "escape", "stress": 0.40, "focus": 0.55, "adaptation": null },
+  { "t": 1740153640000, "phase": "escape", "stress": 0.35, "focus": 0.60, "adaptation": "full_dashboard" },
+  { "t": 1740153645000, "phase": "escape", "stress": 0.30, "focus": 0.65, "adaptation": null },
+  { "t": 1740153650000, "phase": "escape", "stress": 0.25, "focus": 0.70, "adaptation": null }
+]

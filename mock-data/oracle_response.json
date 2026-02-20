@@ -1,0 +1,21 @@
+{
+  "oracle_response": {
+    "text": "Good instinct. Node A has the weakest encryption layer. I'm running a bypass now — stand by.",
+    "voice_style": "calm_reassuring"
+  },
+  "ui_commands": {
+    "complexity": "simplified",
+    "color_mood": "calm",
+    "panels_visible": ["main"],
+    "options": [
+      { "id": "A", "label": "Node A", "highlighted": true },
+      { "id": "C", "label": "Node C", "highlighted": true }
+    ],
+    "guidance_level": "high"
+  },
+  "game_update": {
+    "score_delta": 10,
+    "advance_phase": false,
+    "next_prompt": null
+  }
+}

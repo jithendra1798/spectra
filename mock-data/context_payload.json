@@ -1,0 +1,29 @@
+{
+  "game_state": {
+    "phase": "vault",
+    "time_remaining": 182,
+    "decisions_made": 3,
+    "current_score": 45
+  },
+  "emotion_snapshot": {
+    "current": {
+      "timestamp": 1740153600000,
+      "emotions": {
+        "stress": 0.72,
+        "focus": 0.15,
+        "confusion": 0.58,
+        "confidence": 0.10,
+        "neutral": 0.05
+      },
+      "dominant": "stress",
+      "face_detected": true
+    },
+    "trend": "rising_stress",
+    "avg_stress_30s": 0.65
+  },
+  "player_input": "I think node A looks weakest",
+  "conversation_history": [
+    { "role": "oracle", "text": "I've identified three possible entry points. Which pattern looks weakest to you?" },
+    { "role": "player", "text": "I think node A looks weakest" }
+  ]
+}

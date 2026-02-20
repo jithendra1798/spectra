@@ -22,18 +22,18 @@ Built for the AI Interfaces Hackathon with Claude · Feb 21, 2026 · Betaworks N
                 ┌────────────────────────────────────────────────────────────┐
                 │                    COMPONENT A                             │
                 │              Tavus CVI Session                             │
-                │   emotion detection · STT (voice→text) · TTS (text→voice) │
+                │   emotion detection · STT (voice→text) · TTS (text→voice)  │
                 │                  ORACLE's face + ears + mouth              │
-                └────────┬──────────────────────────────────┬───────────────┘
+                └────────┬──────────────────────────────────┬────────────────┘
                          │                                  ▲
               emotion JSON (Contract 1)          ORACLE's response text
               + player speech text                (from Contract 3)
                          │                                  │
                          ▼                                  │
-                ┌────────────────────────────────────────────────────────────┐
-                │                    COMPONENT D                             │
-                │                 Backend (FastAPI)                          │
-                │    orchestration · game state · timer · Redis storage      │
+                ┌───────────────────────────────────────────────────────────┐
+                │                    COMPONENT D                            │
+                │                 Backend (FastAPI)                         │
+                │    orchestration · game state · timer · Redis storage     │
                 └────────┬──────────────────────────────────┬───────────────┘
                          │                                  │
               Context JSON (Contract 2)          UI commands (from Contract 3)
@@ -64,8 +64,8 @@ Runs silently in the background the entire time.
 ```
                                 ┌──────────────┐                     ┌─────────────┐                     ┌───────────┐
 ┌─────────┐                     │ COMPONENT A  │    emotion JSON     │ COMPONENT D │    store every 1s   │   Redis   │
-│  USER's  │  webcam + mic ───► │ Tavus CVI    │ ──────────────────► │ Backend     │ ──────────────────► │ (timeline │
-│  FACE    │  (video stream)    │ (session)    │   (Contract 1)      │ (FastAPI)   │   (Contract 4)      │  storage) │
+│  USER's │   webcam + mic ───► │ Tavus CVI    │ ──────────────────► │ Backend     │ ──────────────────► │ (timeline │
+│  FACE   │   (video stream)    │ (session)    │   (Contract 1)      │ (FastAPI)   │   (Contract 4)      │  storage) │
 └─────────┘                     └──────────────┘                     └─────────────┘                     └───────────┘
 ```
 
@@ -80,13 +80,13 @@ Runs every time the user says something or a decision point is reached.
                                  ┌──────────────┐
                                  │ COMPONENT A  │
                                  │ Tavus CVI    │
-┌─────────┐   user speaks ─────►│              │                    ┌─────────────┐
+┌──────────┐   user speaks ─────►│              │                   ┌─────────────┐
 │          │                     │  STT ────────│── player text ──► │ COMPONENT D │
 │   USER   │                     │  (built-in)  │                   │ Backend     │
 │          │                     │              │                   │ (FastAPI)   │
-│          │◄─ ORACLE speaks ───│  TTS + Avatar│◄─ response text ──│             │
+│          │◄─ ORACLE speaks ─── │  TTS + Avatar│◄─ response text ──│             │
 │          │   (video + voice)   │  (built-in)  │                   │             │
-└─────────┘                     └──────────────┘                   └──────┬──────┘
+└──────────┘                     └──────────────┘                   └─────┬───────┘
                                                                           │
                                                           builds Context JSON (Contract 2)
                                                           (game state + emotion + player input)
@@ -105,8 +105,8 @@ Runs every time the user says something or a decision point is reached.
                                                                           ▼
                                                                    ┌─────────────┐
 ┌─────────┐   screen adapts     ┌──────────────┐  UI commands via  │ COMPONENT D │
-│  USER    │◄──────────────────│ COMPONENT C  │◄── WebSocket ─────│ Backend     │
-│  (sees)  │                    │ React +      │                   │ (FastAPI)   │
+│  USER   │ ◄────────────────── │ COMPONENT C  │◄── WebSocket ─────│ Backend     │
+│  (sees) │                     │ React +      │                   │ (FastAPI)   │
 └─────────┘                     │ CopilotKit   │                   └─────────────┘
                                 └──────────────┘
 ```

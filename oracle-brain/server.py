@@ -2,6 +2,7 @@
 oracle-brain — REST API server (FastAPI)
 
 Exposes POST /api/oracle/respond for Component D to call.
+Exposes POST /v1/chat/completions for Tavus Custom LLM integration.
 Accepts Contract 2 JSON, returns Contract 3 JSON via Claude.
 
 Usage:
@@ -14,9 +15,11 @@ import logging
 import os
 import re
 import sys
+import uuid
 from pathlib import Path
 
 import anthropic
+import httpx
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -82,6 +85,91 @@ app = FastAPI(title="SPECTRA — Oracle Brain (Component B)", version="1.0.0")
 @app.get("/health")
 async def health():
     return {"status": "ok", "mock_mode": MOCK_MODE, "model": MODEL}
+
+
+ORACLE_TAVUS_PROMPT = (
+    "You are ORACLE, the AI handler for SPECTRA cyber-ops agents. "
+    "You can see and hear the agent through their camera. "
+    "Respond with 1-2 short, punchy tactical sentences. No markdown. No lists. "
+    "Be calm, precise, and trust their judgment. "
+    "Mirror their energy: slower and reassuring when they look stressed, "
+    "direct and fast when they're focused."
+)
+
+BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
+
+
+@app.post("/v1/chat/completions")
+async def tavus_llm(request: Request):
+    """OpenAI-compatible endpoint — used by Tavus as a Custom LLM.
+
+    Tavus sends the full conversation history in OpenAI message format.
+    We extract the session_id embedded in the system message, optionally
+    fetch current game state from the backend, then call Claude and return
+    the oracle speech text in OpenAI format.
+    """
+    body = await request.json()
+    messages = body.get("messages", [])
+
+    # Extract system message (contains our conversational_context)
+    sys_content = next((m["content"] for m in messages if m["role"] == "system"), "")
+    # Session ID is embedded as [SPECTRA_SESSION:xxx]
+    m = re.search(r"\[SPECTRA_SESSION:(\w+)\]", sys_content)
+    session_id = m.group(1) if m else None
+
+    # Get the last user message (player's transcribed speech)
+    user_text = next(
+        (m["content"] for m in reversed(messages) if m["role"] == "user"),
+        "continue",
+    )
+
+    # Optionally fetch live game state for richer context
+    game_context = ""
+    if session_id:
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                resp = await client.get(f"{BACKEND_URL}/api/session/{session_id}/state")
+                if resp.status_code == 200:
+                    state = resp.json()
+                    game_context = (
+                        f" Current game state: phase={state['phase']}, "
+                        f"time_remaining={state['time_remaining']}s, "
+                        f"score={state['current_score']}."
+                    )
+        except Exception:
+            pass  # Graceful degradation — oracle still responds without game state
+
+    prompt = ORACLE_TAVUS_PROMPT + game_context
+
+    if MOCK_MODE:
+        oracle_text = "Copy that. I'm watching your back. Proceed with caution."
+    else:
+        try:
+            claude = anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+            result = await claude.messages.create(
+                model=MODEL,
+                max_tokens=100,
+                system=prompt,
+                messages=[{"role": "user", "content": user_text}],
+            )
+            oracle_text = result.content[0].text.strip()
+        except Exception as e:
+            logger.warning("[Tavus LLM] Claude call failed: %s", e)
+            oracle_text = "Understood. Stay focused."
+
+    logger.info("[Tavus LLM] session=%s  user=%r  oracle=%r", session_id, user_text[:50], oracle_text[:60])
+
+    return JSONResponse({
+        "id": f"chatcmpl-{uuid.uuid4().hex[:8]}",
+        "object": "chat.completion",
+        "model": "spectra-oracle",
+        "choices": [{
+            "index": 0,
+            "message": {"role": "assistant", "content": oracle_text},
+            "finish_reason": "stop",
+        }],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    })
 
 
 @app.post("/api/oracle/respond")

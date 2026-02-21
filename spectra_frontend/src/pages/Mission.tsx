@@ -1,6 +1,6 @@
-import { useMemo, useReducer, useEffect, useRef, useState } from "react";
+import { useMemo, useReducer, useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useSearchParams, useNavigate, useLocation } from "react-router-dom";
-import { useCopilotReadable, useCopilotAction, useCopilotChat } from "@copilotkit/react-core";
+import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui";
 
 import "../adaptive/theme.css";
@@ -14,6 +14,8 @@ import { DemoControls } from "../components/DemoControls";
 import { AdaptationBanner } from "../components/AdaptationBanner";
 import { resetTimeline } from "../adaptive/timelineStore";
 
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
+
 export function Mission() {
   const { sessionId = "demo" } = useParams();
   const [search] = useSearchParams();
@@ -23,7 +25,31 @@ export function Mission() {
   const tavusUrl = (location.state as any)?.tavusUrl as string | undefined;
 
   const [state, dispatch] = useReducer(reduce as any, sessionId, initState);
-  const { sendPlayerSpeech } = useSpectraSocket({ sessionId, dispatch, demoMode });
+  const { sendPlayerSpeech, sendEmotion } = useSpectraSocket({ sessionId, dispatch, demoMode });
+
+  // ── Session start: triggered when Tavus iframe loads (real mode) ─────────────
+  const sessionStarted = useRef(false);
+
+  const startSession = useCallback(async () => {
+    if (demoMode || sessionStarted.current) return;
+    sessionStarted.current = true;
+    try {
+      const res = await fetch(`${API_BASE}/api/session/${sessionId}/start`, { method: "POST" });
+      if (!res.ok) console.error("[Mission] session start failed:", res.status);
+      else console.log("[Mission] session started after Tavus loaded");
+    } catch (e) {
+      console.error("[Mission] session start error:", e);
+    }
+  }, [sessionId, demoMode]);
+
+  // If there's no Tavus URL (offline / no API key), start immediately on mount
+  useEffect(() => {
+    if (demoMode) return;
+    if (!tavusUrl) {
+      // No Tavus — start timer directly
+      startSession();
+    }
+  }, [demoMode, tavusUrl, startSession]);
 
   // ── Demo timer ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -53,7 +79,7 @@ export function Mission() {
 
   // ── Player pick handler ──────────────────────────────────────────────────────
   const onPick = (id: string) => {
-    dispatch({ type: "oracle_said", text: `You chose: ${id}`, voice_style: "neutral" });
+    dispatch({ type: "oracle_said", text: `You chose option ${id}`, voice_style: "neutral" });
     sendPlayerSpeech(`I choose option ${id}`);
   };
 
@@ -65,7 +91,6 @@ export function Mission() {
   }, [state.phase, state.ui, state.timeRemaining]);
 
   // ── CopilotKit: readable state ───────────────────────────────────────────────
-  // Exposes current mission + emotion context to Claude via useCopilotReadable
   useCopilotReadable({
     description: "Current SPECTRA mission state — phase, timer, and UI complexity driven by player emotions",
     value: {
@@ -79,9 +104,6 @@ export function Mission() {
   });
 
   // ── CopilotKit: generative UI action ─────────────────────────────────────────
-  // Claude calls explainUIAdaptation when the interface changes.
-  // handler  → shows AdaptationBanner in the main mission UI
-  // render   → shows an inline card in the CopilotPopup chat
   const [adaptation, setAdaptation] = useState<{ reason: string; adaptationType: string } | null>(null);
 
   useCopilotAction({
@@ -108,13 +130,10 @@ export function Mission() {
       },
     ],
     handler: async ({ reason, adaptationType }) => {
-      console.log("[CopilotKit] explainUIAdaptation fired:", { reason, adaptationType });
       setAdaptation({ reason, adaptationType });
-      // Auto-dismiss after 5 seconds
       setTimeout(() => setAdaptation(null), 5000);
       return "adaptation explained";
     },
-    // render shows inside the CopilotPopup when the action fires
     render: ({ status, args }: any) => (
       <div
         style={{
@@ -137,35 +156,66 @@ export function Mission() {
     ),
   });
 
-  // ── Auto-trigger explanation on complexity change ─────────────────────────────
-  // When the backend drives complexity up/down via WS, we send a message via
-  // useCopilotChat so Claude generates an explanation and calls explainUIAdaptation.
-  const { sendMessage } = useCopilotChat();
+  // ── Emotion simulator (real mode only) ───────────────────────────────────────
+  const phaseRef = useRef(state.phase);
+  phaseRef.current = state.phase;
+  const timeRef = useRef(state.timeRemaining);
+  timeRef.current = state.timeRemaining;
+  const sendEmotionRef = useRef(sendEmotion);
+  sendEmotionRef.current = sendEmotion;
+
+  useEffect(() => {
+    if (demoMode) return;
+    const id = window.setInterval(() => {
+      const t = timeRef.current;
+      const phase = phaseRef.current;
+      const base = phase === "vault" ? 0.52 : phase === "escape" ? 0.62 : 0.32;
+      const urgency = t < 60 ? 0.25 : t < 120 ? 0.12 : 0;
+      const noise = (Math.random() - 0.5) * 0.18;
+      const stress = Math.max(0, Math.min(1, base + urgency + noise));
+      const focus = Math.max(0, Math.min(1, 0.85 - stress + (Math.random() - 0.5) * 0.1));
+      const confusion = Math.max(0, stress * 0.45 + Math.random() * 0.1);
+      const confidence = Math.max(0, focus - 0.1);
+      sendEmotionRef.current({
+        timestamp: Date.now(),
+        emotions: { stress, focus, confusion, confidence, neutral: 0.1 },
+        dominant: stress > 0.6 ? "stress" : focus > 0.5 ? "focus" : "neutral",
+        face_detected: true,
+      });
+    }, 2000);
+    return () => window.clearInterval(id);
+  }, [demoMode]);
+
+  // ── Auto-show adaptation banner on complexity change (no CopilotKit dependency) ─
   const prevComplexity = useRef(state.ui.complexity);
   const isFirstRender = useRef(true);
 
   useEffect(() => {
-    console.log("[UI state]", {
-      complexity: state.ui.complexity,
-      color_mood: state.ui.color_mood,
-      guidance: state.ui.guidance_level,
-      phase: state.phase,
-      connected: state.connected,
-    });
-
     if (isFirstRender.current) {
       isFirstRender.current = false;
+      prevComplexity.current = state.ui.complexity;
       return;
     }
     if (state.ui.complexity === prevComplexity.current) return;
+    const prev = prevComplexity.current;
     prevComplexity.current = state.ui.complexity;
 
-    console.log("[CopilotKit] complexity changed →", state.ui.complexity, "— sending to Claude");
-    sendMessage(
-      `The mission interface just switched to "${state.ui.complexity}" mode. ` +
-        `Phase: ${state.phase}, time left: ${state.timeRemaining}s. ` +
-        `Please call explainUIAdaptation with a one-sentence reason.`
-    );
+    // Show adaptation banner directly (reliable, no Claude round-trip needed)
+    const complexity = state.ui.complexity;
+    let reason = "Interface recalibrated.";
+    let adaptationType = complexity;
+    if (complexity === "simplified" && prev !== "simplified") {
+      reason = "You looked stressed — I cleared the noise to focus on what matters.";
+      adaptationType = "simplified";
+    } else if (complexity === "full") {
+      reason = "You're in the zone — showing the full mission data.";
+      adaptationType = "expanded";
+    } else if (complexity === "standard") {
+      reason = "Recalibrating to standard operational mode.";
+      adaptationType = "standard";
+    }
+    setAdaptation({ reason, adaptationType });
+    setTimeout(() => setAdaptation(null), 5000);
   }, [state.ui.complexity]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -173,7 +223,7 @@ export function Mission() {
 
   return (
     <div data-mood={mood}>
-      {/* Floating adaptation banner — generative UI from CopilotKit */}
+      {/* Floating adaptation banner */}
       {adaptation && (
         <AdaptationBanner
           reason={adaptation.reason}
@@ -210,14 +260,16 @@ export function Mission() {
         </>
       )}
 
-      {/* Mission screen */}
-      <PhaseFrame state={state} tavusUrl={tavusUrl}>{phaseView}</PhaseFrame>
+      {/* Mission screen — onTavusLoad starts the session timer */}
+      <PhaseFrame state={state} tavusUrl={tavusUrl} onTavusLoad={startSession}>
+        {phaseView}
+      </PhaseFrame>
 
-      {/* CopilotKit popup — typed ORACLE chat, also shows explainUIAdaptation renders */}
+      {/* CopilotKit popup — ORACLE chat */}
       <CopilotPopup
         labels={{
           title: "ORACLE",
-          initial: "Ask me anything about the mission, or I'll explain what I'm doing.",
+          initial: "Ask me anything about the mission.",
         }}
       />
     </div>

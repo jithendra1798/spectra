@@ -8,6 +8,7 @@ POST /api/session/{id}/start → start the 5-minute timer
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException
@@ -27,13 +28,21 @@ router = APIRouter(prefix="/api/session", tags=["session"])
 async def create_session():
     """Create a new game session and a fresh Tavus conversation."""
     state = await gsm.create_session()
-    tavus_url = await tavus_client.create_conversation(state.session_id)
+    tavus_url, tavus_conv_id = await tavus_client.create_conversation(state.session_id)
+    if tavus_conv_id:
+        state.tavus_conversation_id = tavus_conv_id
+        await gsm.save_state(state)
     logger.info(
-        "REST — session created: %s  tavus=%s",
+        "REST — session created: %s  tavus_url=%s  tavus_conv_id=%s",
         state.session_id,
         tavus_url or "n/a",
+        tavus_conv_id or "n/a",
     )
-    return SessionCreated(session_id=state.session_id, tavus_conversation_url=tavus_url)
+    return SessionCreated(
+        session_id=state.session_id,
+        tavus_conversation_url=tavus_url,
+        tavus_conversation_id=tavus_conv_id,
+    )
 
 
 @router.get("/{session_id}/state", response_model=SessionState)
@@ -66,5 +75,8 @@ async def start_session(session_id: str):
         on_tick=orchestrator.on_timer_tick,
         on_end=orchestrator.on_timer_end,
     )
+    # Queue ORACLE's opening briefing — fires 1.5 s after start so the
+    # WS client has time to connect before the first message arrives.
+    asyncio.create_task(orchestrator.send_opening_greeting(session_id))
     logger.info("REST — timer started for session %s", session_id)
     return SessionStarted(time_remaining=state.time_remaining)

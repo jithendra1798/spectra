@@ -7,6 +7,7 @@
 :root {
   --bg:             #070b12;
   --bg-panel:       rgba(148, 210, 255, 0.04);
+  --panel:          rgba(148, 210, 255, 0.06);
   --bg-panel-hover: rgba(148, 210, 255, 0.07);
   --bg-dark:        rgba(0, 0, 0, 0.35);
 
@@ -388,6 +389,17 @@
   box-shadow: 0 0 16px var(--accent-glow);
 }
 
+.option-btn.selected {
+  border-color: var(--ok);
+  border-left: 3px solid var(--ok);
+  background: rgba(52, 211, 153, 0.08);
+  box-shadow: 0 0 14px rgba(52, 211, 153, 0.18);
+}
+
+.option-btn.selected .option-num {
+  color: var(--ok);
+}
+
 .option-num {
   font-family: var(--mono);
   font-size: 10px;
@@ -414,6 +426,14 @@
   color: var(--accent);
   letter-spacing: 0.08em;
   transition: color var(--ui-ease);
+}
+
+.option-chosen {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ok);
+  letter-spacing: 0.08em;
+  margin-left: auto;
 }
 
 /* Pulse ring on recommended option */

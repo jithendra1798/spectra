@@ -20,9 +20,11 @@ import httpx
 
 from app.config import settings
 from app.emotion_processor import EmotionProcessor
+from app import tavus_client as tavus
 from app.models import (
     Complexity,
     EmotionSignal,
+    EmotionSnapshot,
     GameState,
     GameStateSnapshot,
     GameUpdate,
@@ -266,14 +268,22 @@ async def handle_player_speech(session_id: str, text: str) -> None:
     await gsm.save_state(state)
 
     # ----- Step 6: Broadcast WS messages -----
-    # ORACLE speech → Component A (Tavus TTS)
+    oracle_text = oracle_resp.oracle_response.text
+
+    # ORACLE speech → Component C chat display
     await ws_handler.broadcast(
         session_id,
         WSOracleSpeech(
-            text=oracle_resp.oracle_response.text,
+            text=oracle_text,
             voice_style=oracle_resp.oracle_response.voice_style.value,
         ),
     )
+    # Make Tavus avatar speak the oracle response (fire-and-forget)
+    if state.tavus_conversation_id:
+        asyncio.create_task(
+            tavus.echo_conversation(state.tavus_conversation_id, oracle_text)
+        )
+
     # UI update → Component C (React + CopilotKit)
     await ws_handler.broadcast(
         session_id,
@@ -401,3 +411,42 @@ async def on_timer_end(session_id: str) -> None:
         session_id,
         WSGameEnd(final_score=state.current_score, session_id=session_id),
     )
+
+
+# ---------------------------------------------------------------------------
+# Opening greeting (sent once when game starts)
+# ---------------------------------------------------------------------------
+
+_OPENING_TEXT = (
+    "ORACLE online. We have a narrow window to extract the classified data. "
+    "I've identified three entry points — Node A has low encryption but active monitoring, "
+    "Node B is heavily encrypted but unmonitored, Node C is an unmapped maintenance port. "
+    "Which pattern looks weakest to you?"
+)
+
+async def send_opening_greeting(session_id: str) -> None:
+    """Broadcast ORACLE's mission briefing right after game start.
+
+    Always uses a hardcoded opening line so the briefing is immediate and
+    consistent.  Waits 2 s so the WS client and Tavus have time to connect.
+    """
+    await asyncio.sleep(2.0)
+
+    state = await gsm.get_state(session_id)
+    if state is None:
+        return
+
+    # Record in conversation history so Claude has context
+    gsm.add_to_history(state, "oracle", _OPENING_TEXT)
+    await gsm.save_state(state)
+
+    # Send text to frontend chat display
+    await ws_handler.broadcast(
+        session_id,
+        WSOracleSpeech(text=_OPENING_TEXT, voice_style=VoiceStyle.neutral.value),
+    )
+    # Make Tavus avatar speak the greeting
+    if state.tavus_conversation_id:
+        await tavus.echo_conversation(state.tavus_conversation_id, _OPENING_TEXT)
+
+    logger.info("Opening greeting sent for session %s", session_id)

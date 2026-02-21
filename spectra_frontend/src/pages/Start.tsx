@@ -15,14 +15,12 @@ export function Start() {
       // 1. Create session (backend also creates a fresh Tavus conversation)
       const createRes = await fetch(`${API_BASE}/api/session/create`, { method: "POST" });
       if (!createRes.ok) throw new Error(`Create failed: ${createRes.status}`);
-      const { session_id, tavus_conversation_url } = await createRes.json();
+      const { session_id, tavus_conversation_url, tavus_conversation_id } = await createRes.json();
 
-      // 2. Start timer
-      const startRes = await fetch(`${API_BASE}/api/session/${session_id}/start`, { method: "POST" });
-      if (!startRes.ok) throw new Error(`Start failed: ${startRes.status}`);
-
-      // 3. Navigate to mission, carrying the fresh Tavus URL
-      nav(`/mission/${session_id}`, { state: { tavusUrl: tavus_conversation_url } });
+      // 2. Navigate to mission — timer will start once Tavus video iframe loads
+      nav(`/mission/${session_id}`, {
+        state: { tavusUrl: tavus_conversation_url, tavusConversationId: tavus_conversation_id },
+      });
     } catch (e: any) {
       setError(e.message ?? "Failed to connect to backend");
       setLoading(false);

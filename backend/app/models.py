@@ -180,6 +180,7 @@ class GameState(BaseModel):
     is_active: bool = True
     last_emotion: Optional[EmotionSignal] = None
     emotion_buffer: list[EmotionSignal] = []
+    tavus_conversation_id: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -240,6 +241,7 @@ class PreviousUIState(BaseModel):
 class SessionCreated(BaseModel):
     session_id: str
     tavus_conversation_url: Optional[str] = None
+    tavus_conversation_id: Optional[str] = None
 
 
 class SessionStarted(BaseModel):

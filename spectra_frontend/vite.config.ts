@@ -39,15 +39,14 @@ Keep every reason to one sentence. Never use em-dashes.`,
 
       server.middlewares.use(async (req: any, res: any, next: any) => {
         if (!req.url?.startsWith("/copilotkit")) return next();
-        // CopilotKit's default transport is "rest" before the first render effect
-        // switches it to "single".  The very first sync sends GET /copilotkit/info
-        // which the single-route Hono app does not handle.  Rewrite it so the
-        // single-route handler sees POST /copilotkit with {method:"info"}.
-        if (req.method === "GET" && req.url === "/copilotkit/info") {
-          req.method = "POST";
-          req.url = "/copilotkit";
-          req.body = { method: "info" };
-          req.headers["content-type"] = "application/json";
+        // CopilotKit client sends GET /copilotkit/info on startup.
+        // The Hono handler only supports POST, so we answer GET requests directly
+        // with a valid stub so the client doesn't hang or crash.
+        if (req.method === "GET") {
+          res.setHeader("Content-Type", "application/json");
+          res.statusCode = 200;
+          res.end(JSON.stringify({ title: "ORACLE", agents: [], actions: [] }));
+          return;
         }
         try {
           await handler(req, res);

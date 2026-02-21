@@ -16,11 +16,13 @@ from typing import Optional
 
 from app.models import (
     AdaptationType,
+    ColorMood,
     Complexity,
     EmotionSignal,
     EmotionSnapshot,
     EmotionTrend,
     GameState,
+    GuidanceLevel,
     Phase,
     PreviousUIState,
     TimelineEntry,

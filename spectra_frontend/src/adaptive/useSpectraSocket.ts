@@ -74,39 +74,39 @@ export function useSpectraSocket(opts: {
       return;
     }
 
-    closedByUsRef.current = false;
+    // `active` is captured per effect invocation — prevents reconnect after cleanup
+    let active = true;
 
     const connect = () => {
+      if (!active) return;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        if (!active) { ws.close(); return; }
         retryRef.current = 0;
         console.log("[WS] connected →", wsUrl);
         dispatch({ type: "connected" });
       };
 
       ws.onclose = () => {
-        wsRef.current = null;
+        // Only null the ref if it still points to THIS ws.
+        // If a newer WS was already assigned (StrictMode race), leave it alone.
+        if (wsRef.current === ws) wsRef.current = null;
+        if (!active) return; // cleaned up — do NOT reconnect
         console.log("[WS] disconnected from", wsUrl);
         dispatch({ type: "disconnected" });
-
-        // auto-reconnect unless we intentionally closed
-        if (closedByUsRef.current) return;
-
         const attempt = Math.min(6, retryRef.current++);
-        const delay = 300 * Math.pow(2, attempt); // 300ms, 600ms, 1200ms... max-ish
+        const delay = 300 * Math.pow(2, attempt);
         window.setTimeout(connect, delay);
       };
 
       ws.onerror = () => {
-        // close triggers reconnect logic
-        try {
-          ws.close();
-        } catch {}
+        try { ws.close(); } catch {}
       };
 
       ws.onmessage = (evt) => {
+        if (!active) return;
         try {
           const raw = JSON.parse(evt.data);
           console.log("[WS ← backend]", raw);
@@ -126,10 +126,8 @@ export function useSpectraSocket(opts: {
     connect();
 
     return () => {
-      closedByUsRef.current = true;
-      try {
-        wsRef.current?.close();
-      } catch {}
+      active = false;
+      try { wsRef.current?.close(); } catch {}
       wsRef.current = null;
     };
   }, [wsUrl, demoMode, dispatch]);

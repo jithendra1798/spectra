@@ -13,10 +13,12 @@ const PHASE_STEPS: Record<string, string> = {
 export function PhaseFrame({
   state,
   tavusUrl: tavusUrlProp,
+  onTavusLoad,
   children,
 }: {
   state: SpectraState;
   tavusUrl?: string;
+  onTavusLoad?: () => void;
   children: React.ReactNode;
 }) {
   // Prefer dynamically generated URL from session creation; fall back to env var (demo mode)
@@ -63,6 +65,7 @@ export function PhaseFrame({
                 title="Tavus CVI"
                 src={tavusUrl}
                 allow="camera; microphone; autoplay; clipboard-write; display-capture"
+                onLoad={onTavusLoad}
               />
             ) : (
               <div className="oracle-offline">

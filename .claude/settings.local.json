@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(pkill:*)",
+      "Bash(sleep 3:*)",
+      "Bash(.venv/bin/python:*)"
+    ]
+  }
+}

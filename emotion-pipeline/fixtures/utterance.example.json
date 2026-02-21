@@ -1,0 +1,10 @@
+{
+  "message_type": "event",
+  "event_type": "conversation.utterance",
+  "conversation_id": "conv_123",
+  "properties": {
+    "speech": "I think node A looks weakest",
+    "user_audio_analysis": "stress=7, focus=2, confusion=5, confidence=2, neutral=1",
+    "user_visual_analysis": "stress=6, focus=3, confusion=4, confidence=2, neutral=1"
+  }
+}

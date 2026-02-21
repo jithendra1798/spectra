@@ -1,0 +1,16 @@
+{
+  "persona_name": "SPECTRA_ORACLE",
+  "system_prompt": "You are ORACLE, a calm mission partner. Speak concisely and adapt to the user's emotional state.",
+  "pipeline_mode": "full",
+  "layers": {
+    "perception": {
+      "perception_model": "raven-1",
+      "audio_awareness_queries": [
+        "Rate the user's tone on these dimensions: stress (1-10), focus (1-10), confusion (1-10), confidence (1-10), neutral (1-10). Format: stress=X, focus=Y, confusion=Z, confidence=W, neutral=N."
+      ],
+      "visual_awareness_queries": [
+        "Rate the user's tone on these dimensions: stress (1-10), focus (1-10), confusion (1-10), confidence (1-10), neutral (1-10). Format: stress=X, focus=Y, confusion=Z, confidence=W, neutral=N."
+      ]
+    }
+  }
+}

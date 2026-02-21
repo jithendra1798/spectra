@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import websockets
 
@@ -19,6 +19,7 @@ class BackendWSClient:
         self.base_url = base_url.rstrip("/")
         self.session_id = session_id
         self.ws: Optional[websockets.WebSocketClientProtocol] = None
+        self._connected = False
 
     @property
     def ws_url(self) -> str:
@@ -26,14 +27,20 @@ class BackendWSClient:
 
     async def connect(self) -> None:
         self.ws = await websockets.connect(self.ws_url)
+        self._connected = True
 
     async def close(self) -> None:
         if self.ws is not None:
             await self.ws.close()
             self.ws = None
+        self._connected = False
+
+    @property
+    def is_connected(self) -> bool:
+        return self._connected and self.ws is not None
 
     async def send(self, payload: dict[str, Any]) -> None:
-        if self.ws is None:
+        if self.ws is None or not self._connected:
             raise RuntimeError("WebSocket not connected")
         await self.ws.send(json.dumps(payload))
 
@@ -48,6 +55,12 @@ class BackendWSClient:
             raise RuntimeError("WebSocket not connected")
         async for msg in self.ws:
             print(msg)
+
+    async def recv_loop_with_handler(self, handler: Callable[[str], None]) -> None:
+        if self.ws is None:
+            raise RuntimeError("WebSocket not connected")
+        async for msg in self.ws:
+            handler(msg)
 
 
 async def _smoke_test() -> None:

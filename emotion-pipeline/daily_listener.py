@@ -32,6 +32,62 @@ class TavusEventHandler(EventHandler):
         super().__init__()
         self.log_all = log_all
         self.ws_client = ws_client
+        self.call_client: CallClient | None = None
+        self.last_conversation_id: str | None = None
+
+    def set_call_client(self, client: CallClient) -> None:
+        self.call_client = client
+
+    def _update_conversation_id(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        conversation_id = payload.get("conversation_id")
+        if not conversation_id:
+            properties = payload.get("properties", {}) if isinstance(payload, dict) else {}
+            conversation_id = properties.get("conversation_id")
+        if conversation_id:
+            self.last_conversation_id = str(conversation_id)
+
+    def send_echo(self, text: str, emotion_tag: str | None = None) -> None:
+        if not self.call_client:
+            logging.warning("Cannot send echo: CallClient not set")
+            return
+        if not self.last_conversation_id:
+            logging.warning("Cannot send echo: conversation_id unknown")
+            return
+
+        try:
+            # Interrupt any ongoing response first
+            self.call_client.send_app_message(
+                {
+                    "message_type": "conversation",
+                    "event_type": "conversation.interrupt",
+                    "conversation_id": self.last_conversation_id,
+                }
+            )
+        except Exception:
+            logging.exception("Failed to send conversation.interrupt")
+
+        if emotion_tag:
+            body = f'<emotion value="{emotion_tag}"/> {text}'
+        else:
+            body = text
+
+        try:
+            self.call_client.send_app_message(
+                {
+                    "message_type": "conversation",
+                    "event_type": "conversation.echo",
+                    "conversation_id": self.last_conversation_id,
+                    "properties": {
+                        "modality": "text",
+                        "text": body,
+                        "done": True,
+                    },
+                }
+            )
+        except Exception:
+            logging.exception("Failed to send conversation.echo")
 
     def on_app_message(self, message: Any) -> None:
         payload = message
@@ -47,6 +103,11 @@ class TavusEventHandler(EventHandler):
         if isinstance(payload, dict) and payload.get("event_type") == "conversation.utterance":
             logging.info("conversation.utterance: %s", _safe_json(payload))
 
+            self._update_conversation_id(payload)
+
+            properties = payload.get("properties", {}) if isinstance(payload, dict) else {}
+            role = properties.get("role")
+
             # Checkpoint 2: map to Contract 1 + extract player speech
             contract1, player_speech = map_utterance_to_contract1(payload)
             logging.info("contract1: %s", _safe_json(contract1))
@@ -54,7 +115,7 @@ class TavusEventHandler(EventHandler):
                 logging.info("player_speech: %s", player_speech)
 
             # Send to backend WS (Checkpoint 3)
-            if self.ws_client is not None:
+            if self.ws_client is not None and role == "user":
                 try:
                     loop = Daily.get_event_loop()
                 except Exception:
@@ -63,6 +124,8 @@ class TavusEventHandler(EventHandler):
                     loop.create_task(self.ws_client.send_emotion_data(contract1))
                     if player_speech:
                         loop.create_task(self.ws_client.send_player_speech(player_speech))
+            elif self.ws_client is not None and role != "user":
+                logging.info("Skipping backend send (role=%s)", role)
 
 
 def _safe_json(payload: Any) -> str:
@@ -127,11 +190,30 @@ def main() -> int:
 
     handler = TavusEventHandler(log_all=args.log_all, ws_client=ws_client)
     client = CallClient(event_handler=handler)
+    handler.set_call_client(client)
 
     logging.info("Joining Daily room: %s", args.url)
     if ws_client is not None:
         logging.info("Connecting backend WS: %s", ws_client.ws_url)
-        Daily.get_event_loop().create_task(ws_client.connect())
+        loop = Daily.get_event_loop()
+
+        def _on_backend_message(raw: str) -> None:
+            # Checkpoint 4: echo backend speech to Tavus replica
+            logging.info("backend_ws: %s", raw)
+            try:
+                msg = json.loads(raw)
+            except Exception:
+                return
+            if isinstance(msg, dict) and msg.get("type") == "oracle_speech":
+                text = msg.get("text") or ""
+                if text:
+                    handler.send_echo(text)
+
+        async def _ws_task() -> None:
+            await ws_client.connect()
+            await ws_client.recv_loop_with_handler(_on_backend_message)
+
+        loop.create_task(_ws_task())
     client.join(args.url, token=args.token, user_name=args.name)
 
     # Block until SIGINT/SIGTERM

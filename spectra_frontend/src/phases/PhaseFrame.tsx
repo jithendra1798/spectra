@@ -11,6 +11,7 @@ export function PhaseFrame({
   state: SpectraState;
   children: React.ReactNode;
 }) {
+  const tavusUrl = (import.meta as any).env?.VITE_TAVUS_CONVERSATION_URL as string | undefined;
   const panels = new Set(state.ui.panels_visible);
 
   const panelClass = (name: "stats" | "radar" | "comms") =>
@@ -19,11 +20,26 @@ export function PhaseFrame({
   return (
     <div style={{ padding: 18, display: "grid", gap: 14, minHeight: "100vh" }}>
       <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 14 }}>
-        {/* ORACLE tile (Tavus embed later) */}
         <div className="card" style={{ padding: 14, minHeight: 180 }}>
           <div style={{ fontWeight: 800 }}>ORACLE</div>
-          <div style={{ color: "var(--muted)", marginTop: 8 }}>
-            Tavus embed goes here
+          <div style={{ marginTop: 8 }}>
+            {tavusUrl ? (
+              <iframe
+                title="Tavus CVI"
+                src={tavusUrl}
+                style={{
+                  width: "100%",
+                  height: 240,
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 10,
+                }}
+                allow="camera; microphone; autoplay; clipboard-write; display-capture"
+              />
+            ) : (
+              <div style={{ color: "var(--muted)" }}>
+                Set VITE_TAVUS_CONVERSATION_URL to render the Tavus avatar.
+              </div>
+            )}
           </div>
         </div>
 

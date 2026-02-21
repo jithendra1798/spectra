@@ -9,6 +9,7 @@ export type WsInbound =
   | { type: "timer_tick"; time_remaining: number }
   | { type: "phase_change"; phase: Phase }
   | { type: "oracle_said"; text: string; voice_style: OracleResponse["voice_style"] }
+  | { type: "oracle_speech"; text: string; voice_style: OracleResponse["voice_style"] }
   | { type: "game_end"; final_score: number }
   // optional: backend can push timeline points live too
   | { type: "timeline_point"; data: { t: number; phase: Phase; stress: number; focus: number; adaptation?: string | null } };
@@ -43,6 +44,8 @@ function isWsInbound(msg: any): msg is WsInbound {
       return msg.phase === "infiltrate" || msg.phase === "vault" || msg.phase === "escape";
     case "oracle_said":
       return typeof msg.text === "string";
+    case "oracle_speech":
+      return typeof msg.text === "string";
     case "game_end":
       return typeof msg.final_score === "number";
     case "timeline_point":
@@ -65,7 +68,7 @@ export function useSpectraSocket(opts: {
 
   const wsUrl = useMemo(() => {
     const base = getWsBaseUrl();
-    return `${base.replace(/\/$/, "")}/ws/${sessionId}`;
+    return `${base.replace(/\/$/, "")}/ws/session/${sessionId}`;
   }, [sessionId]);
 
   useEffect(() => {
@@ -107,7 +110,9 @@ export function useSpectraSocket(opts: {
       ws.onmessage = (evt) => {
         try {
           const raw = JSON.parse(evt.data);
-          if (isWsInbound(raw)) {
+          if (raw?.type === "oracle_speech") {
+            dispatch({ type: "oracle_said", text: raw.text, voice_style: raw.voice_style ?? "neutral" });
+          } else if (isWsInbound(raw)) {
             dispatch(raw);
           } else {
             // ignore unknown payloads (helps during integration)

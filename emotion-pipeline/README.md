@@ -28,6 +28,38 @@ export SESSION_ID="<session_id>"
 python emotion-pipeline/daily_listener.py --log-all --backend-ws "$BACKEND_WS_URL" --session-id "$SESSION_ID"
 ```
 
+## Tavus persona (Full Pipeline + Raven)
+
+To enable perception in `conversation.utterance` events, use Full Pipeline with Raven.
+This repo includes a starter persona config:
+
+`emotion-pipeline/tavus_persona.json`
+
+Create a persona with:
+
+```bash
+curl -X POST https://api.tavus.io/v2/personas \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $TAVUS_API_KEY" \
+  --data @emotion-pipeline/tavus_persona.json
+```
+
+Then create a conversation using the returned `persona_id` and your `replica_id`:
+
+```bash
+curl -X POST https://api.tavus.io/v2/conversations \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $TAVUS_API_KEY" \
+  -d '{
+    "persona_id": "<persona_id>",
+    "replica_id": "<replica_id>"
+  }'
+```
+
+Use the `conversation_url` from the response in:
+- `VITE_TAVUS_CONVERSATION_URL` (frontend iframe)
+- `TAVUS_CONVERSATION_URL` (emotion pipeline)
+
 ## Mapper test
 
 ```bash

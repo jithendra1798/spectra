@@ -65,6 +65,13 @@ useEffect(() => {
 
 const nav = useNavigate();
 
+// Navigate to debrief when game ends (backend or demo)
+useEffect(() => {
+  if (!state.gameOver) return;
+  const timer = setTimeout(() => nav(`/debrief/${sessionId}`), 1500);
+  return () => clearTimeout(timer);
+}, [state.gameOver, sessionId, nav]);
+
 const onPick = (id: string) => {
   dispatch({ type: "oracle_said", text: `Player picked ${id}`, voice_style: "neutral" });
   sendPlayerSpeech(`I choose option ${id}`);

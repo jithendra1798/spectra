@@ -41,7 +41,7 @@ function isWsInbound(msg: any): msg is WsInbound {
     case "timer_tick":
       return typeof msg.time_remaining === "number";
     case "phase_change":
-      return msg.phase === "infiltrate" || msg.phase === "vault" || msg.phase === "escape";
+      return msg.phase === "infiltrate" || msg.phase === "vault" || msg.phase === "escape" || msg.phase === "debrief";
     case "oracle_said":
       return typeof msg.text === "string";
     case "oracle_speech":

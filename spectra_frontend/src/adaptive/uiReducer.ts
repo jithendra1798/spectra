@@ -77,8 +77,9 @@ export function reduce(state: SpectraState, msg: WsMsg): SpectraState {
         case "game_end": {
         return {
             ...state,
-            phase: "escape", // or keep phase
-            oracle: { text: `Mission ended. Score: ${msg.final_score}`, voice_style: "neutral" },
+            gameOver: true,
+            finalScore: msg.final_score,
+            oracle: { text: `Mission ended. Score: ${msg.final_score}`, voice_style: "neutral" as const },
         };
         }
     case "ui_update":

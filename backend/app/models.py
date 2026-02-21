@@ -207,7 +207,7 @@ class WSUIUpdate(BaseModel):
 
 
 class WSOracleSpeech(BaseModel):
-    type: Literal["oracle_speech"] = "oracle_speech"
+    type: Literal["oracle_said"] = "oracle_said"
     text: str
     voice_style: str
 

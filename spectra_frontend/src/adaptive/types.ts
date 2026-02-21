@@ -44,4 +44,6 @@ export type SpectraState = {
   ui: UiCommands;
   oracle?: OracleResponse;
   comms: Array<{ role: "oracle" | "player"; text: string }>;
+  gameOver?: boolean;
+  finalScore?: number;
 };

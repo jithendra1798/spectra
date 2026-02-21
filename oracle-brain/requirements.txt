@@ -1,3 +1,5 @@
 anthropic
 websockets
 python-dotenv
+fastapi
+uvicorn[standard]

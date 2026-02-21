@@ -9,7 +9,6 @@ Contract 4: Timeline Entry          (D → Redis)
 
 from __future__ import annotations
 
-import time
 from enum import Enum
 from typing import Literal, Optional
 
@@ -207,7 +206,7 @@ class WSUIUpdate(BaseModel):
 
 
 class WSOracleSpeech(BaseModel):
-    type: Literal["oracle_said"] = "oracle_said"
+    type: Literal["oracle_speech"] = "oracle_speech"
     text: str
     voice_style: str
 
@@ -240,6 +239,7 @@ class PreviousUIState(BaseModel):
 
 class SessionCreated(BaseModel):
     session_id: str
+    tavus_conversation_url: Optional[str] = None
 
 
 class SessionStarted(BaseModel):

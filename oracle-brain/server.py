@@ -12,8 +12,11 @@ Usage:
 import json
 import logging
 import os
+import re
 import sys
 from pathlib import Path
+
+import anthropic
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -46,20 +49,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger("oracle-brain")
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _extract_json(text: str) -> dict:
+    """Parse JSON from Claude's response, stripping markdown code fences if present."""
+    text = text.strip()
+    m = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", text)
+    if m:
+        text = m.group(1).strip()
+    return json.loads(text)
+
+
 # ── Claude call ───────────────────────────────────────────────────────────────
 
-def call_claude(contract2: dict) -> dict:
-    """Send Contract 2 to Claude and parse Contract 3 response."""
-    import anthropic
-
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    result = client.messages.create(
+async def call_claude(contract2: dict) -> dict:
+    """Send Contract 2 to Claude and parse Contract 3 response (async, non-blocking)."""
+    client = anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    result = await client.messages.create(
         model=MODEL,
         max_tokens=1024,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": json.dumps(contract2)}],
     )
-    return json.loads(result.content[0].text)
+    return _extract_json(result.content[0].text)
 
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
@@ -86,7 +98,7 @@ async def oracle_respond(request: Request):
         logger.info("[out] MOCK mode — returning canned response")
     else:
         try:
-            response = call_claude(contract2)
+            response = await call_claude(contract2)
         except Exception as e:
             logger.warning("[warn] Claude call failed (%s), returning mock response", e)
             response = MOCK_RESPONSE

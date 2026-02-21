@@ -11,7 +11,6 @@ type WsMsg =
   | { type: "emotion_update"; data: EmotionContract1 }
   | { type: "disconnected" }
   | { type: "game_end"; final_score: number };
-  
 
 export const defaultUi: UiCommands = {
   complexity: "standard",
@@ -101,7 +100,7 @@ export function reduce(state: SpectraState, msg: WsMsg): SpectraState {
             phase: state.phase,
             stress: msg.data.emotions.stress,
             focus: msg.data.emotions.focus,
-            adaptation, // or set when UI changes
+            adaptation,
     });
 
     return { ...state, ui: nextUi };

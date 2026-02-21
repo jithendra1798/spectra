@@ -140,6 +140,52 @@ class EmotionProcessor:
         )
 
     # ------------------------------------------------------------------
+    # Real-time emotion → UI derivation (mirrors frontend emotionEngine.ts)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def derive_ui_from_emotion(signal: EmotionSignal, current: UICommands) -> UICommands:
+        """Derive UI commands directly from a single emotion signal.
+
+        Mirrors the rules in spectra_frontend/src/adaptive/emotionEngine.ts.
+        Used for real-time UI updates from emotion data without waiting for oracle.
+        """
+        stress = signal.emotions.stress
+        focus = signal.emotions.focus
+        confusion = signal.emotions.confusion
+        confidence = signal.emotions.confidence
+
+        # Rule 1: high stress OR high confusion → simplified + calm + high guidance
+        if stress > 0.6 or confusion > 0.5:
+            options = [o.model_copy(update={"highlighted": True}) for o in current.options[:2]] or current.options
+            return UICommands(
+                complexity=Complexity.simplified,
+                color_mood=ColorMood.calm,
+                panels_visible=["main"],
+                guidance_level=GuidanceLevel.high,
+                options=options,
+            )
+
+        # Rule 2: high focus AND low stress → full + intense
+        if focus > 0.6 and stress < 0.3 and confidence > 0.5:
+            return UICommands(
+                complexity=Complexity.full,
+                color_mood=ColorMood.intense,
+                panels_visible=["main", "stats", "radar", "comms"],
+                guidance_level=GuidanceLevel.low,
+                options=[o.model_copy(update={"highlighted": False}) for o in current.options],
+            )
+
+        # Default: standard + neutral
+        return UICommands(
+            complexity=Complexity.standard,
+            color_mood=ColorMood.neutral,
+            panels_visible=["main", "stats"],
+            guidance_level=GuidanceLevel.medium,
+            options=[o.model_copy(update={"highlighted": False}) for o in current.options],
+        )
+
+    # ------------------------------------------------------------------
     # Adaptation detection (diff previous vs. new UI commands)
     # ------------------------------------------------------------------
 

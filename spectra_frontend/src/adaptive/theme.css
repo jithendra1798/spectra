@@ -1,77 +1,630 @@
+/* ─────────────────────────────────────────────────────────────────
+   SPECTRA — Adaptive HUD Theme
+   Mood variables shift across the tree via [data-mood] on root div
+───────────────────────────────────────────────────────────────── */
+
+/* ── Base variables ── */
 :root {
-  --bg: #0b0f17;
-  --panel: rgba(255, 255, 255, 0.06);
-  --text: rgba(255, 255, 255, 0.92);
-  --muted: rgba(255, 255, 255, 0.65);
-  --accent: #7dd3fc;
+  --bg:             #070b12;
+  --bg-panel:       rgba(148, 210, 255, 0.04);
+  --bg-panel-hover: rgba(148, 210, 255, 0.07);
+  --bg-dark:        rgba(0, 0, 0, 0.35);
+
+  --text:   rgba(255, 255, 255, 0.90);
+  --muted:  rgba(148, 210, 255, 0.50);
+  --label:  rgba(148, 210, 255, 0.32);
+
+  --accent:      #38bdf8;
+  --accent-glow: rgba(56, 189, 248, 0.18);
+  --accent-dim:  rgba(56, 189, 248, 0.10);
+  --accent-border: rgba(56, 189, 248, 0.22);
+
   --danger: #fb7185;
-  --ok: #34d399;
-  --border: rgba(255, 255, 255, 0.10);
-  --shadow: rgba(0, 0, 0, 0.35);
+  --ok:     #34d399;
+  --warn:   #fbbf24;
+
+  --border:        rgba(56, 189, 248, 0.12);
+  --border-strong: rgba(56, 189, 248, 0.28);
+  --shadow:        rgba(0, 0, 0, 0.55);
+
+  --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  --ui-ease: 380ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ── Calm — greens, soft ── */
 [data-mood="calm"] {
-  --accent: #34d399;
-  --danger: #60a5fa;
+  --accent:        #34d399;
+  --accent-glow:   rgba(52, 211, 153, 0.18);
+  --accent-dim:    rgba(52, 211, 153, 0.09);
+  --accent-border: rgba(52, 211, 153, 0.25);
+  --danger:        #60a5fa;
+  --border:        rgba(52, 211, 153, 0.12);
+  --border-strong: rgba(52, 211, 153, 0.28);
 }
 
+/* ── Neutral — sky blue ── */
 [data-mood="neutral"] {
-  --accent: #7dd3fc;
-  --danger: #fb7185;
+  --accent:        #38bdf8;
+  --accent-glow:   rgba(56, 189, 248, 0.18);
+  --accent-dim:    rgba(56, 189, 248, 0.10);
+  --accent-border: rgba(56, 189, 248, 0.22);
+  --danger:        #fb7185;
+  --border:        rgba(56, 189, 248, 0.12);
+  --border-strong: rgba(56, 189, 248, 0.28);
 }
 
+/* ── Intense — reds, high energy ── */
 [data-mood="intense"] {
-  --accent: #fb7185;
-  --danger: #f97316;
+  --accent:        #f87171;
+  --accent-glow:   rgba(248, 113, 113, 0.20);
+  --accent-dim:    rgba(248, 113, 113, 0.10);
+  --accent-border: rgba(248, 113, 113, 0.28);
+  --danger:        #fb923c;
+  --border:        rgba(248, 113, 113, 0.14);
+  --border-strong: rgba(248, 113, 113, 0.32);
 }
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-  transition: background 400ms ease, color 400ms ease;
-}
+/* ─────────────────────── Cards & Surfaces ─────────────────────── */
 
 .card {
-  background: var(--panel);
+  background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px var(--shadow);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px var(--shadow);
+  transition: background var(--ui-ease), border-color var(--ui-ease), box-shadow var(--ui-ease);
 }
 
-.fade {
-  transition: opacity 220ms ease, transform 220ms ease, max-height 220ms ease;
+.card-accent {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 18px var(--accent-glow), 0 2px 12px var(--shadow);
 }
 
-.hiddenPanel {
-  opacity: 0;
-  transform: translateY(6px);
-  max-height: 0px;
+/* ─────────────────────── HUD Layout ─────────────────────── */
+
+.hud-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  transition: background var(--ui-ease), color var(--ui-ease);
+}
+
+/* Top status bar */
+.hud-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 48px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7, 11, 18, 0.90);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  transition: border-color var(--ui-ease);
+}
+
+.hud-logo {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: var(--accent);
+  transition: color var(--ui-ease);
+}
+
+.hud-phase-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-phase-step {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--label);
+  text-transform: uppercase;
+}
+
+.hud-phase-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text);
+  text-transform: uppercase;
+}
+
+.phase-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  transition: background var(--ui-ease);
+}
+
+.hud-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Main body 2-col */
+.hud-body {
+  display: grid;
+  grid-template-columns: 268px 1fr;
+  gap: 14px;
+  padding: 14px 20px 0;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Bottom panel strip */
+.hud-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  padding: 14px 20px;
+}
+
+/* ─────────────────────── Oracle Sidebar ─────────────────────── */
+
+.oracle-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.oracle-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  transition: border-color var(--ui-ease);
+}
+
+.oracle-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--accent);
+  text-transform: uppercase;
+  transition: color var(--ui-ease);
+}
+
+.oracle-video {
+  border-radius: 10px;
   overflow: hidden;
-  pointer-events: none;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.50);
+  transition: border-color var(--ui-ease);
+  position: relative;
+  flex-shrink: 0;
 }
 
-.visiblePanel {
-  opacity: 1;
-  transform: translateY(0px);
-  max-height: 600px;
+.oracle-video iframe {
+  display: block;
+  width: 100%;
+  height: 210px;
+  border: none;
 }
 
+.oracle-offline {
+  height: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--label);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+.oracle-offline-icon {
+  font-size: 28px;
+  opacity: 0.35;
+}
+
+.oracle-speech {
+  padding: 10px 12px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.58;
+  color: var(--text);
+  font-style: italic;
+  transition: border-color var(--ui-ease), background var(--ui-ease);
+  flex-grow: 1;
+}
+
+.oracle-speech-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  font-style: normal;
+  transition: color var(--ui-ease);
+}
+
+/* ─────────────────────── Phase Content ─────────────────────── */
+
+.phase-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.phase-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  transition: border-color var(--ui-ease);
+}
+
+.phase-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  text-transform: uppercase;
+  transition: color var(--ui-ease);
+}
+
+.phase-instruction {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  transition: color var(--ui-ease);
+}
+
+/* ─────────────────────── Status Dot ─────────────────────── */
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background var(--ui-ease), box-shadow var(--ui-ease);
+}
+
+.dot-ok {
+  background: var(--ok);
+  box-shadow: 0 0 7px var(--ok);
+  animation: dot-blink 2.4s ease-in-out infinite;
+}
+
+.dot-warn {
+  background: var(--warn);
+  box-shadow: 0 0 7px var(--warn);
+}
+
+.dot-danger {
+  background: var(--danger);
+  box-shadow: 0 0 7px var(--danger);
+}
+
+@keyframes dot-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* ─────────────────────── Timer ─────────────────────── */
+
+.timer-display {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  transition: color var(--ui-ease);
+}
+
+.timer-display.urgent {
+  color: var(--danger);
+  animation: timer-pulse 1s ease-in-out infinite;
+}
+
+@keyframes timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ─────────────────────── Option Grid (Choices) ─────────────────────── */
+
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  transition: background var(--ui-ease), border-color var(--ui-ease), box-shadow var(--ui-ease), transform 120ms ease;
+}
+
+.option-btn:hover {
+  background: var(--bg-panel-hover);
+  border-color: var(--accent-border);
+  box-shadow: 0 0 12px var(--accent-glow);
+  transform: translateX(2px);
+}
+
+.option-btn:active {
+  transform: translateX(0) scale(0.99);
+}
+
+.option-btn.highlighted {
+  border-color: var(--accent);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-dim);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.option-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--label);
+  min-width: 20px;
+  transition: color var(--ui-ease);
+}
+
+.option-btn.highlighted .option-num {
+  color: var(--accent);
+}
+
+.option-label {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.option-rec {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  transition: color var(--ui-ease);
+}
+
+/* Pulse ring on recommended option */
 .pulse {
   position: relative;
 }
 .pulse::after {
   content: "";
   position: absolute;
-  inset: -6px;
-  border-radius: 18px;
+  inset: -4px;
+  border-radius: 12px;
   border: 1px solid var(--accent);
-  opacity: 0.7;
-  animation: pulse 1.2s ease-in-out infinite;
+  opacity: 0.65;
+  animation: pulse-ring 1.6s ease-in-out infinite;
+  pointer-events: none;
 }
-@keyframes pulse {
-  0% { transform: scale(0.98); opacity: 0.65; }
-  70% { transform: scale(1.04); opacity: 0.2; }
-  100% { transform: scale(0.98); opacity: 0.65; }
+@keyframes pulse-ring {
+  0% { transform: scale(0.97); opacity: 0.65; }
+  60% { transform: scale(1.03); opacity: 0.15; }
+  100% { transform: scale(0.97); opacity: 0.65; }
+}
+
+/* ─────────────────────── Panel Show/Hide ─────────────────────── */
+
+.fade {
+  transition: opacity 260ms ease, transform 260ms ease, max-height 300ms ease;
+  overflow: hidden;
+}
+
+.visiblePanel {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 500px;
+  pointer-events: auto;
+}
+
+.hiddenPanel {
+  opacity: 0;
+  transform: translateY(8px);
+  max-height: 0;
+  pointer-events: none;
+}
+
+/* ─────────────────────── Tactical Labels ─────────────────────── */
+
+.tac-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.20em;
+  color: var(--label);
+  text-transform: uppercase;
+  transition: color var(--ui-ease);
+}
+
+.tac-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 0;
+  transition: background var(--ui-ease);
+}
+
+/* ─────────────────────── Micro progress bar ─────────────────────── */
+
+.tac-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.tac-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 600ms ease, background var(--ui-ease);
+}
+
+/* ─────────────────────── Node Grid (Infiltrate) ─────────────────────── */
+
+.node-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.node-cell {
+  padding: 10px 8px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--label);
+  letter-spacing: 0.12em;
+  transition: all 200ms;
+}
+
+.node-cell.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.node-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin: 0 auto 5px;
+  opacity: 0.6;
+  transition: background var(--ui-ease);
+}
+
+/* ─────────────────────── Cipher (Vault) ─────────────────────── */
+
+.cipher-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.cipher-block {
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.40);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color var(--ui-ease);
+}
+
+.cipher-id {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: var(--label);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  transition: color var(--ui-ease);
+}
+
+.cipher-text {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  line-height: 1.7;
+  word-break: break-all;
+  transition: color var(--ui-ease);
+}
+
+/* ─────────────────────── Route Cards (Escape) ─────────────────────── */
+
+.route-card {
+  padding: 12px 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: all 200ms;
+}
+
+.route-card.risk-high   { border-left: 3px solid var(--danger); }
+.route-card.risk-medium { border-left: 3px solid var(--warn); }
+.route-card.risk-low    { border-left: 3px solid var(--ok); }
+
+.route-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.route-meta {
+  display: flex;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+/* ─────────────────────── Adaptation Banner ─────────────────────── */
+
+.adaptation-banner {
+  position: fixed;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(7, 11, 18, 0.96);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 0 24px var(--accent-glow), 0 4px 20px var(--shadow);
+  backdrop-filter: blur(14px);
+  max-width: 500px;
+  width: max-content;
+  animation: banner-in 240ms ease;
+  transition: border-color var(--ui-ease), box-shadow var(--ui-ease);
+}
+
+@keyframes banner-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }

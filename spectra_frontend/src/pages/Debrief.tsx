@@ -48,20 +48,16 @@ export function Debrief() {
   const data = useMemo(() => {
     if (raw.length === 0) return [];
     const t0 = raw[0].t;
-    return raw.map((e) => ({
-      ...e,
-      sec: Math.round((e.t - t0) / 1000),
-    }));
+    return raw.map((e) => ({ ...e, sec: Math.round((e.t - t0) / 1000) }));
   }, [raw]);
 
   const summary = useMemo(() => {
     if (raw.length === 0) {
-      return { peakStress: null as any, mostFocus: null as any, adaptations: 0 };
+      return { peakStress: null as TimelineEntry | null, mostFocus: null as TimelineEntry | null, adaptations: 0 };
     }
     let peakStress = raw[0];
     let mostFocus = raw[0];
     let adaptations = 0;
-
     for (const e of raw) {
       if (e.stress > peakStress.stress) peakStress = e;
       if (e.focus > mostFocus.focus) mostFocus = e;
@@ -85,53 +81,117 @@ export function Debrief() {
 
   if (loading) {
     return (
-      <div style={{ padding: 24, color: "var(--text)" }}>
-        <div style={{ fontSize: 14, color: "var(--muted)" }}>Loading timeline...</div>
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "var(--mono)",
+            fontSize: 12,
+            color: "var(--muted)",
+            letterSpacing: "0.2em",
+          }}
+        >
+          LOADING TIMELINE...
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24, color: "var(--text)" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 12, color: "var(--muted)" }}>Mission Debrief</div>
-          <div style={{ fontSize: 28, fontWeight: 900 }}>Your Emotional Journey</div>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--bg)",
+        padding: "32px 28px",
+        color: "var(--text)",
+      }}
+    >
+      {/* Header */}
+      <div style={{ marginBottom: 28 }}>
+        <div className="tac-label" style={{ marginBottom: 8 }}>Mission Debrief</div>
+        <div
+          style={{
+            fontFamily: "var(--mono)",
+            fontSize: 28,
+            fontWeight: 900,
+            letterSpacing: "0.06em",
+            color: "var(--accent)",
+            transition: "color var(--ui-ease)",
+          }}
+        >
+          Emotional Journey
         </div>
-        <div style={{ fontSize: 12, color: "var(--muted)" }}>Session: {sessionId}</div>
+        <div style={{ height: 2, width: 48, background: "var(--accent)", marginTop: 10, borderRadius: 1 }} />
+        <div style={{ marginTop: 8, fontSize: 11, color: "var(--label)", fontFamily: "var(--mono)" }}>
+          SESSION {sessionId.toUpperCase()}
+        </div>
       </div>
 
       {raw.length === 0 ? (
-        <div className="card" style={{ padding: 24, marginTop: 16, textAlign: "center" }}>
-          <div style={{ fontSize: 14, color: "var(--muted)" }}>No timeline data recorded for this session.</div>
+        <div
+          className="card"
+          style={{ padding: 36, textAlign: "center", maxWidth: 480 }}
+        >
+          <div style={{ fontSize: 28, opacity: 0.25, marginBottom: 12 }}>◈</div>
+          <div className="tac-label" style={{ marginBottom: 6 }}>No Data</div>
+          <div style={{ fontSize: 13, color: "var(--muted)" }}>
+            No timeline data recorded for this session.
+          </div>
         </div>
       ) : (
         <>
-          <div className="card" style={{ padding: 16, marginTop: 16 }}>
-            <div style={{ fontWeight: 900, marginBottom: 10 }}>Stress Timeline</div>
-
+          {/* Timeline chart */}
+          <div className="card" style={{ padding: 18, marginBottom: 16 }}>
+            <div className="tac-label" style={{ marginBottom: 12 }}>Stress Timeline</div>
             <div style={{ height: 260 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data}>
-                  <XAxis dataKey="sec" tick={{ fill: "var(--muted)" }} />
-                  <YAxis domain={[0, 1]} tick={{ fill: "var(--muted)" }} />
+                  <XAxis
+                    dataKey="sec"
+                    tick={{ fill: "rgba(148,210,255,0.5)", fontSize: 11, fontFamily: "var(--mono)" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "rgba(56,189,248,0.12)" }}
+                  />
+                  <YAxis
+                    domain={[0, 1]}
+                    tick={{ fill: "rgba(148,210,255,0.5)", fontSize: 11, fontFamily: "var(--mono)" }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={30}
+                  />
                   <Tooltip
-                    contentStyle={{ background: "rgba(0,0,0,0.85)", border: "1px solid rgba(255,255,255,0.1)" }}
+                    contentStyle={{
+                      background: "rgba(7,11,18,0.95)",
+                      border: "1px solid rgba(56,189,248,0.22)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
                     labelFormatter={(sec) => `t+${sec}s`}
-                    formatter={(value: any, name: any, _props: any) => [value, name]}
+                    formatter={(value: any, name: any) => [
+                      typeof value === "number" ? value.toFixed(2) : value,
+                      name,
+                    ]}
                   />
 
                   {phaseLines.map((p) => (
                     <ReferenceLine
                       key={p.phase}
                       x={p.sec}
-                      stroke="rgba(255,255,255,0.15)"
+                      stroke="rgba(255,255,255,0.12)"
                       strokeDasharray="4 4"
                       label={{
                         value: p.phase.toUpperCase(),
                         position: "insideTopLeft",
-                        fill: "var(--muted)",
-                        fontSize: 10,
+                        fill: "rgba(148,210,255,0.5)",
+                        fontSize: 9,
+                        fontFamily: "monospace",
                       }}
                     />
                   ))}
@@ -139,30 +199,53 @@ export function Debrief() {
                   <Line
                     type="monotone"
                     dataKey="stress"
+                    stroke="var(--accent)"
                     strokeWidth={2}
                     dot={(props: any) => {
                       const { cx, cy, payload } = props;
                       if (!payload?.adaptation) return <Dot {...props} r={1} />;
-                      return <Dot cx={cx} cy={cy} r={4} />;
+                      return <Dot cx={cx} cy={cy} r={4} fill="var(--warn)" stroke="none" />;
                     }}
-                    isAnimationActive={true}
+                    isAnimationActive
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
-
-            <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted)" }}>
-              Dots indicate moments the UI adapted (adaptation marker present).
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 11,
+                color: "var(--label)",
+                fontFamily: "var(--mono)",
+              }}
+            >
+              Highlighted dots = UI adaptation events
             </div>
           </div>
 
-          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginTop: 16 }}>
-            <div className="card" style={{ padding: 14 }}>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>Peak Stress</div>
+          {/* Summary cards */}
+          <div
+            style={{
+              display: "grid",
+              gap: 12,
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            }}
+          >
+            <div className="card" style={{ padding: 16 }}>
+              <div className="tac-label" style={{ marginBottom: 8 }}>Peak Stress</div>
               {summary.peakStress ? (
                 <>
-                  <div style={{ fontSize: 22, fontWeight: 900 }}>{summary.peakStress.stress.toFixed(2)}</div>
-                  <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                  <div
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 900,
+                      fontFamily: "var(--mono)",
+                      color: "var(--danger)",
+                    }}
+                  >
+                    {summary.peakStress.stress.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
                     {summary.peakStress.phase} &middot; {fmtTime(summary.peakStress.t)}
                   </div>
                 </>
@@ -171,12 +254,21 @@ export function Debrief() {
               )}
             </div>
 
-            <div className="card" style={{ padding: 14 }}>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>Most Focused</div>
+            <div className="card" style={{ padding: 16 }}>
+              <div className="tac-label" style={{ marginBottom: 8 }}>Peak Focus</div>
               {summary.mostFocus ? (
                 <>
-                  <div style={{ fontSize: 22, fontWeight: 900 }}>{summary.mostFocus.focus.toFixed(2)}</div>
-                  <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                  <div
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 900,
+                      fontFamily: "var(--mono)",
+                      color: "var(--ok)",
+                    }}
+                  >
+                    {summary.mostFocus.focus.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
                     {summary.mostFocus.phase} &middot; {fmtTime(summary.mostFocus.t)}
                   </div>
                 </>
@@ -185,17 +277,38 @@ export function Debrief() {
               )}
             </div>
 
-            <div className="card" style={{ padding: 14 }}>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>Total UI Adaptations</div>
-              <div style={{ fontSize: 22, fontWeight: 900 }}>{summary.adaptations}</div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>markers recorded</div>
+            <div className="card" style={{ padding: 16 }}>
+              <div className="tac-label" style={{ marginBottom: 8 }}>UI Adaptations</div>
+              <div
+                style={{
+                  fontSize: 28,
+                  fontWeight: 900,
+                  fontFamily: "var(--mono)",
+                  color: "var(--accent)",
+                }}
+              >
+                {summary.adaptations}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+                markers recorded
+              </div>
             </div>
           </div>
         </>
       )}
 
-      <div style={{ marginTop: 18, fontSize: 13, color: "var(--muted)", fontStyle: "italic" }}>
-        "This same emotion-adaptive pattern applies to surgical guidance, crisis response, education, and adaptive content platforms."
+      {/* Footer note */}
+      <div
+        style={{
+          marginTop: 36,
+          fontSize: 12,
+          color: "var(--label)",
+          fontStyle: "italic",
+          maxWidth: 600,
+        }}
+      >
+        "This same emotion-adaptive pattern applies to surgical guidance, crisis response,
+        education, and adaptive content platforms."
       </div>
     </div>
   );

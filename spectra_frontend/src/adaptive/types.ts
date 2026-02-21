@@ -1,4 +1,4 @@
-export type Phase = "infiltrate" | "vault" | "escape";
+export type Phase = "infiltrate" | "vault" | "escape" | "debrief";
 
 export type ColorMood = "calm" | "neutral" | "intense";
 export type Complexity = "simplified" | "standard" | "full";

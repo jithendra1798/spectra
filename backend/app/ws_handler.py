@@ -67,6 +67,13 @@ async def broadcast(session_id: str, message: dict | BaseModel) -> None:
     else:
         payload = json.dumps(message)
 
+    import json as _json
+    try:
+        _preview = _json.loads(payload)
+        logger.info("[WS → clients] session=%s  type=%s  payload=%s", session_id, _preview.get("type", "?"), payload[:200])
+    except Exception:
+        pass
+
     dead: list[WebSocket] = []
     for ws in conns:
         try:

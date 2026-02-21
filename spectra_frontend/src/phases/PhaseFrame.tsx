@@ -4,59 +4,90 @@ import { StatsPanel } from "./panels/StatsPanel";
 import { RadarPanel } from "./panels/RadarPanel";
 import { CommsPanel } from "./panels/CommsPanel";
 
+const PHASE_STEPS: Record<string, string> = {
+  infiltrate: "01 / 03",
+  vault:      "02 / 03",
+  escape:     "03 / 03",
+};
+
 export function PhaseFrame({
   state,
+  tavusUrl: tavusUrlProp,
   children,
 }: {
   state: SpectraState;
+  tavusUrl?: string;
   children: React.ReactNode;
 }) {
-  const tavusUrl = (import.meta as any).env?.VITE_TAVUS_CONVERSATION_URL as string | undefined;
-  const panels = new Set(state.ui.panels_visible);
+  // Prefer dynamically generated URL from session creation; fall back to env var (demo mode)
+  const envUrl = (import.meta as any).env?.VITE_TAVUS_CONVERSATION_URL as string | undefined;
+  const tavusUrl = (tavusUrlProp ?? envUrl) || null;
 
+  const panels = new Set(state.ui.panels_visible);
   const panelClass = (name: "stats" | "radar" | "comms") =>
     `fade ${panels.has(name) ? "visiblePanel" : "hiddenPanel"}`;
 
   return (
-    <div style={{ padding: 18, display: "grid", gap: 14, minHeight: "100vh" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 14 }}>
-        <div className="card" style={{ padding: 14, minHeight: 180 }}>
-          <div style={{ fontWeight: 800 }}>ORACLE</div>
-          <div style={{ marginTop: 8 }}>
+    <div className="hud-root" data-mood={state.ui.color_mood ?? "neutral"}>
+      {/* ── Top status bar ── */}
+      <div className="hud-topbar">
+        <div className="hud-logo">SPECTRA</div>
+
+        <div className="hud-phase-indicator">
+          <span className="hud-phase-step">{PHASE_STEPS[state.phase] ?? "— / —"}</span>
+          <div className="phase-sep" />
+          <span className="hud-phase-name">{state.phase}</span>
+        </div>
+
+        <div className="hud-topbar-right">
+          <Timer seconds={state.timeRemaining} />
+          <div
+            className={`dot ${state.connected ? "dot-ok" : "dot-danger"}`}
+            title={state.connected ? "Connected" : "Offline"}
+          />
+        </div>
+      </div>
+
+      {/* ── Body: oracle sidebar + phase content ── */}
+      <div className="hud-body">
+        {/* Oracle sidebar */}
+        <div className="oracle-sidebar card" style={{ padding: 14 }}>
+          <div className="oracle-header">
+            <div className="dot dot-ok" />
+            <div className="oracle-label">Oracle</div>
+          </div>
+
+          <div className="oracle-video">
             {tavusUrl ? (
               <iframe
                 title="Tavus CVI"
                 src={tavusUrl}
-                style={{
-                  width: "100%",
-                  height: 240,
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 10,
-                }}
                 allow="camera; microphone; autoplay; clipboard-write; display-capture"
               />
             ) : (
-              <div style={{ color: "var(--muted)" }}>
-                Set VITE_TAVUS_CONVERSATION_URL to render the Tavus avatar.
+              <div className="oracle-offline">
+                <div className="oracle-offline-icon">◈</div>
+                <span>ORACLE OFFLINE</span>
               </div>
             )}
           </div>
+
+          {state.oracle?.text && (
+            <div className="oracle-speech">
+              <div className="oracle-speech-label">Last transmission</div>
+              {state.oracle.text}
+            </div>
+          )}
         </div>
 
-        <div className="card" style={{ padding: 14, display: "grid", gap: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>PHASE</div>
-              <div style={{ fontSize: 20, fontWeight: 900, textTransform: "capitalize" }}>{state.phase}</div>
-            </div>
-            <Timer seconds={state.timeRemaining} />
-          </div>
+        {/* Phase content */}
+        <div className="phase-content card" style={{ padding: 16 }}>
           {children}
         </div>
       </div>
 
-      {/* Panels row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+      {/* ── Panel strip ── */}
+      <div className="hud-panels">
         <div className={panelClass("stats")}>
           <StatsPanel connected={state.connected} />
         </div>

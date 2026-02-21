@@ -136,7 +136,8 @@ async def handle_emotion_data(session_id: str, signal: EmotionSignal) -> None:
 
     1. Push to buffer
     2. Build a Contract 4 timeline entry and store in Redis
-    3. Save updated state
+    3. Derive UI from emotion and broadcast ui_update if it changed
+    4. Save updated state
     """
     ts_start = time.monotonic()
 
@@ -147,11 +148,33 @@ async def handle_emotion_data(session_id: str, signal: EmotionSignal) -> None:
     # 1 — update buffer
     EmotionProcessor.push_to_buffer(state, signal)
 
-    # 2 — Contract 4 timeline entry (adaptation set to None; updated later if ORACLE responds)
+    # 2 — Contract 4 timeline entry
     entry = EmotionProcessor.build_timeline_entry(signal, state.phase)
     await redis_client.append_timeline(session_id, entry)
 
-    # 3 — persist state
+    # 3 — derive UI from emotion and broadcast if it changed
+    prev_ui = await redis_client.load_prev_ui(session_id)
+    current_ui = prev_ui.ui_commands if prev_ui else UICommands()
+    derived_ui = EmotionProcessor.derive_ui_from_emotion(signal, current_ui)
+
+    if derived_ui.complexity != current_ui.complexity or derived_ui.color_mood != current_ui.color_mood:
+        logger.info(
+            "[emotion→UI] session=%s  stress=%.2f  focus=%.2f  complexity=%s→%s  mood=%s→%s",
+            session_id,
+            signal.emotions.stress,
+            signal.emotions.focus,
+            current_ui.complexity.value,
+            derived_ui.complexity.value,
+            current_ui.color_mood.value,
+            derived_ui.color_mood.value,
+        )
+        await ws_handler.broadcast(session_id, WSUIUpdate(data=derived_ui))
+        await redis_client.save_prev_ui(
+            session_id,
+            PreviousUIState(ui_commands=derived_ui, voice_style=VoiceStyle.neutral),
+        )
+
+    # 4 — persist state
     await gsm.save_state(state)
 
     elapsed = (time.monotonic() - ts_start) * 1000
@@ -305,15 +328,33 @@ async def _call_component_b(context: OracleContext) -> OracleResponse:
         if _http_client is None:
             raise RuntimeError("HTTP client not initialised")
 
+        contract2_json = context.model_dump_json()
+        _emo = context.emotion_snapshot.current
+        logger.info(
+            "[→ oracle-brain] POST %s  phase=%s  stress=%.2f  focus=%.2f  trend=%s  text=%r",
+            url,
+            context.game_state.phase.value if hasattr(context.game_state.phase, "value") else context.game_state.phase,
+            _emo.emotions.stress if _emo else 0.0,
+            _emo.emotions.focus if _emo else 0.0,
+            context.emotion_snapshot.trend.value if hasattr(context.emotion_snapshot.trend, "value") else context.emotion_snapshot.trend,
+            (context.player_input or "")[:60],
+        )
         resp = await _http_client.post(
             url,
-            content=context.model_dump_json(),
+            content=contract2_json,
             headers={"Content-Type": "application/json"},
         )
         resp.raise_for_status()
         data = resp.json()
         oracle_resp = OracleResponse.model_validate(data)
-        logger.debug("Component B responded: voice_style=%s", oracle_resp.oracle_response.voice_style.value)
+        logger.info(
+            "[← oracle-brain] voice_style=%s  complexity=%s  guidance=%s  score_delta=%s  text=%r",
+            oracle_resp.oracle_response.voice_style.value,
+            oracle_resp.ui_commands.complexity.value if hasattr(oracle_resp.ui_commands.complexity, "value") else oracle_resp.ui_commands.complexity,
+            oracle_resp.ui_commands.guidance_level,
+            oracle_resp.game_update.score_delta,
+            oracle_resp.oracle_response.text[:80],
+        )
         return oracle_resp
 
     except httpx.ConnectError:

@@ -9,47 +9,36 @@ export function Infiltrate({
   onPick: (id: string) => void;
 }) {
   const c = state.ui.complexity;
+  const cols = c === "simplified" ? 3 : c === "standard" ? 4 : 5;
+  const count = c === "simplified" ? 6 : c === "standard" ? 12 : 20;
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <div style={{ color: "var(--muted)" }}>
-        {c === "simplified"
-          ? "Pick the weakest entry point. ORACLE will guide you."
-          : c === "standard"
-          ? "Choose an entry point based on signal patterns."
-          : "Analyze the grid. Use panels + comms. Pick the optimal entry point."}
+    <>
+      <div className="phase-header">
+        <span className="phase-title">Infiltrate</span>
+        <span className="phase-instruction">
+          {c === "simplified"
+            ? "Pick the weakest entry point. ORACLE will guide you."
+            : c === "standard"
+            ? "Choose an entry point based on signal patterns."
+            : "Analyze the network grid. Use all panels. Pick the optimal vector."}
+        </span>
       </div>
 
-      {/* Node grid visual */}
+      {/* Node grid */}
       <div
-        className="card"
-        style={{
-          padding: 12,
-          display: "grid",
-          gap: 10,
-          gridTemplateColumns:
-            c === "simplified" ? "repeat(2, 1fr)" : c === "standard" ? "repeat(3, 1fr)" : "repeat(4, 1fr)",
-        }}
+        className="node-grid card"
+        style={{ padding: 12, gridTemplateColumns: `repeat(${cols}, 1fr)` }}
       >
-        {Array.from({ length: c === "simplified" ? 6 : c === "standard" ? 9 : 12 }).map((_, i) => (
-          <div
-            key={i}
-            style={{
-              padding: 12,
-              borderRadius: 14,
-              border: "1px solid var(--border)",
-              background: "rgba(0,0,0,0.18)",
-              color: "var(--muted)",
-              fontWeight: 700,
-            }}
-          >
-            Node {String.fromCharCode(65 + i)}
+        {Array.from({ length: count }).map((_, i) => (
+          <div key={i} className="node-cell">
+            <div className="node-dot" />
+            {`N-${String.fromCharCode(65 + (i % 26))}${Math.floor(i / 26) || ""}`}
           </div>
         ))}
       </div>
 
-      {/* Real choices are Contract 3 options */}
       <OptionGrid options={state.ui.options} onPick={onPick} />
-    </div>
+    </>
   );
 }

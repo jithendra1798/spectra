@@ -9,7 +9,6 @@ export type WsInbound =
   | { type: "timer_tick"; time_remaining: number }
   | { type: "phase_change"; phase: Phase }
   | { type: "oracle_said"; text: string; voice_style: OracleResponse["voice_style"] }
-  | { type: "oracle_speech"; text: string; voice_style: OracleResponse["voice_style"] }
   | { type: "game_end"; final_score: number }
   // optional: backend can push timeline points live too
   | { type: "timeline_point"; data: { t: number; phase: Phase; stress: number; focus: number; adaptation?: string | null } };
@@ -43,8 +42,6 @@ function isWsInbound(msg: any): msg is WsInbound {
     case "phase_change":
       return msg.phase === "infiltrate" || msg.phase === "vault" || msg.phase === "escape" || msg.phase === "debrief";
     case "oracle_said":
-      return typeof msg.text === "string";
-    case "oracle_speech":
       return typeof msg.text === "string";
     case "game_end":
       return typeof msg.final_score === "number";
@@ -85,11 +82,13 @@ export function useSpectraSocket(opts: {
 
       ws.onopen = () => {
         retryRef.current = 0;
+        console.log("[WS] connected →", wsUrl);
         dispatch({ type: "connected" });
       };
 
       ws.onclose = () => {
         wsRef.current = null;
+        console.log("[WS] disconnected from", wsUrl);
         dispatch({ type: "disconnected" });
 
         // auto-reconnect unless we intentionally closed
@@ -110,15 +109,16 @@ export function useSpectraSocket(opts: {
       ws.onmessage = (evt) => {
         try {
           const raw = JSON.parse(evt.data);
+          console.log("[WS ← backend]", raw);
           if (raw?.type === "oracle_speech") {
             dispatch({ type: "oracle_said", text: raw.text, voice_style: raw.voice_style ?? "neutral" });
           } else if (isWsInbound(raw)) {
             dispatch(raw);
           } else {
-            // ignore unknown payloads (helps during integration)
+            console.warn("[WS ← backend] unknown message type:", raw?.type, raw);
           }
         } catch {
-          // ignore bad JSON
+          console.error("[WS ← backend] bad JSON:", evt.data);
         }
       };
     };
@@ -137,7 +137,11 @@ export function useSpectraSocket(opts: {
   function send(msg: WsOutbound) {
     if (demoMode) return;
     const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn("[WS → backend] not open, dropping:", msg);
+      return;
+    }
+    console.log("[WS → backend]", msg);
     ws.send(JSON.stringify(msg));
   }
 
@@ -150,7 +154,6 @@ export function useSpectraSocket(opts: {
   }
 
   function sendEmotion(data: EmotionContract1) {
-    // tomorrow: Tavus pipeline / browser can call this every ~1s
     send({ type: "emotion_data", data });
   }
 

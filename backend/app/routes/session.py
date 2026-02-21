@@ -16,6 +16,7 @@ from app.config import settings
 from app.models import SessionCreated, SessionStarted, SessionState
 from app import game_state as gsm
 from app import orchestrator
+from app import tavus_client
 
 logger = logging.getLogger("spectra.routes.session")
 
@@ -24,10 +25,15 @@ router = APIRouter(prefix="/api/session", tags=["session"])
 
 @router.post("/create", response_model=SessionCreated)
 async def create_session():
-    """Create a new game session and return its ID."""
+    """Create a new game session and a fresh Tavus conversation."""
     state = await gsm.create_session()
-    logger.info("REST — session created: %s", state.session_id)
-    return SessionCreated(session_id=state.session_id)
+    tavus_url = await tavus_client.create_conversation(state.session_id)
+    logger.info(
+        "REST — session created: %s  tavus=%s",
+        state.session_id,
+        tavus_url or "n/a",
+    )
+    return SessionCreated(session_id=state.session_id, tavus_conversation_url=tavus_url)
 
 
 @router.get("/{session_id}/state", response_model=SessionState)

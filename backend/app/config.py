@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # Game
     game_duration: int = 300  # overridden to 90 when demo_mode is True
 
+    # Tavus CVI
+    tavus_api_key: str = ""
+    tavus_persona_id: str = "p53b88f7ef1e"
+    tavus_replica_id: str = "r5dc7c7d0bcb"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @property

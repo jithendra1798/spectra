@@ -8,27 +8,16 @@ export function OptionGrid({
   onPick: (id: string) => void;
 }) {
   return (
-    <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
-      {options.map((o) => (
+    <div className="option-list">
+      {options.map((o, i) => (
         <button
           key={o.id}
-          className={`card ${o.highlighted ? "pulse" : ""}`}
+          className={`option-btn${o.highlighted ? " highlighted pulse" : ""}`}
           onClick={() => onPick(o.id)}
-          style={{
-            padding: 14,
-            textAlign: "left",
-            cursor: "pointer",
-            color: "var(--text)",
-            background: "var(--panel)",
-          }}
         >
-          <div style={{ fontSize: 12, color: "var(--muted)" }}>OPTION</div>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>{o.label}</div>
-          {o.highlighted ? (
-            <div style={{ marginTop: 8, fontSize: 12, color: "var(--accent)", fontWeight: 700 }}>
-              Recommended
-            </div>
-          ) : null}
+          <span className="option-num">{String(i + 1).padStart(2, "0")}</span>
+          <span className="option-label">{o.label}</span>
+          {o.highlighted && <span className="option-rec">ORACLE REC</span>}
         </button>
       ))}
     </div>

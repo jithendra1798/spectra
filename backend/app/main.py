@@ -120,14 +120,24 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             msg_type = msg.get("type")
 
             if msg_type == "emotion_data":
+                data = msg.get("data", {})
+                emotions = data.get("emotions", {})
+                logger.info(
+                    "[WS ← client] emotion_data  session=%s  stress=%.2f  focus=%.2f  dominant=%s",
+                    session_id,
+                    emotions.get("stress", 0),
+                    emotions.get("focus", 0),
+                    data.get("dominant", "?"),
+                )
                 try:
-                    signal = EmotionSignal.model_validate(msg.get("data", {}))
+                    signal = EmotionSignal.model_validate(data)
                     await orchestrator.handle_emotion_data(session_id, signal)
                 except Exception:
                     logger.exception("Error processing emotion_data for %s", session_id)
 
             elif msg_type == "player_speech":
                 text = msg.get("text", "")
+                logger.info("[WS ← client] player_speech  session=%s  text=%r", session_id, text[:80])
                 if text:
                     try:
                         await orchestrator.handle_player_speech(session_id, text)
@@ -135,6 +145,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         logger.exception("Error processing player_speech for %s", session_id)
                 else:
                     logger.warning("Empty player_speech from session %s", session_id)
+
+            elif msg_type == "client_event":
+                logger.debug("[WS ← client] client_event  session=%s  name=%s", session_id, msg.get("name"))
 
             else:
                 logger.warning("Unknown WS message type '%s' from session %s", msg_type, session_id)

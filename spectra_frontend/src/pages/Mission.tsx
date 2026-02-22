@@ -7,12 +7,15 @@ import "../adaptive/theme.css";
 import { initState, reduce } from "../adaptive/uiReducer";
 import { useSpectraSocket } from "../adaptive/useSpectraSocket";
 import { PhaseFrame } from "../phases/PhaseFrame";
+import { Briefing } from "../phases/Briefing";
 import { Infiltrate } from "../phases/Infiltrate";
 import { Vault } from "../phases/Vault";
 import { Escape } from "../phases/Escape";
 import { DemoControls } from "../components/DemoControls";
 import { AdaptationBanner } from "../components/AdaptationBanner";
 import { resetTimeline } from "../adaptive/timelineStore";
+
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export function Mission() {
   const { sessionId = "demo" } = useParams();
@@ -24,6 +27,14 @@ export function Mission() {
 
   const [state, dispatch] = useReducer(reduce as any, sessionId, initState);
   const { sendPlayerSpeech } = useSpectraSocket({ sessionId, dispatch, demoMode });
+
+  // ── Briefing gate — skipped in demo mode ────────────────────────────────────
+  const [briefingDone, setBriefingDone] = useState(demoMode);
+
+  async function handleReady() {
+    await fetch(`${API_BASE}/api/session/${sessionId}/start`, { method: "POST" });
+    setBriefingDone(true);
+  }
 
   // ── Demo timer ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -210,8 +221,12 @@ export function Mission() {
         </>
       )}
 
-      {/* Mission screen */}
-      <PhaseFrame state={state} tavusUrl={tavusUrl}>{phaseView}</PhaseFrame>
+      {/* Mission screen — briefing gate */}
+      {briefingDone ? (
+        <PhaseFrame state={state} tavusUrl={tavusUrl}>{phaseView}</PhaseFrame>
+      ) : (
+        <Briefing tavusUrl={tavusUrl ?? null} connected={state.connected} onReady={handleReady} />
+      )}
 
       {/* CopilotKit popup — typed ORACLE chat, also shows explainUIAdaptation renders */}
       <CopilotPopup

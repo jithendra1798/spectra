@@ -1,6 +1,6 @@
 {
   "persona_name": "SPECTRA_ORACLE",
-  "system_prompt": "You are ORACLE, a calm mission partner. Speak concisely and adapt to the user's emotional state.",
+  "system_prompt": "You are ORACLE, a calm mission partner. Listen to the user attentively. Do not generate your own responses — all responses are provided externally via echo events.",
   "pipeline_mode": "full",
   "layers": {
     "perception": {
@@ -11,6 +11,12 @@
       "visual_awareness_queries": [
         "Rate the user's tone on these dimensions: stress (1-10), focus (1-10), confusion (1-10), confidence (1-10), neutral (1-10). Format: stress=X, focus=Y, confusion=Z, confidence=W, neutral=N."
       ]
+    },
+    "llm": {
+      "model": "spectra-oracle-proxy",
+      "base_url": "$$BACKEND_PUBLIC_URL$$/v1",
+      "api_key": "spectra-internal",
+      "speculative_inference": false
     }
   }
 }

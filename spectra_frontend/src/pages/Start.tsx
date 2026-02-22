@@ -17,11 +17,7 @@ export function Start() {
       if (!createRes.ok) throw new Error(`Create failed: ${createRes.status}`);
       const { session_id, tavus_conversation_url } = await createRes.json();
 
-      // 2. Start timer
-      const startRes = await fetch(`${API_BASE}/api/session/${session_id}/start`, { method: "POST" });
-      if (!startRes.ok) throw new Error(`Start failed: ${startRes.status}`);
-
-      // 3. Navigate to mission, carrying the fresh Tavus URL
+      // 2. Navigate to mission briefing — timer will start when player clicks I'M READY
       nav(`/mission/${session_id}`, { state: { tavusUrl: tavus_conversation_url } });
     } catch (e: any) {
       setError(e.message ?? "Failed to connect to backend");

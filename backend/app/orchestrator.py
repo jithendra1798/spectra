@@ -69,9 +69,15 @@ _mock_counter: int = 0
 
 
 def _mock_oracle_response() -> OracleResponse:
-    """Return alternating mock responses for testing without Component B."""
+    """Return alternating mock responses for testing without Component B.
+
+    Every 3rd decision advances the game phase so testers can see
+    the full infiltrate → vault → escape → debrief progression.
+    """
     global _mock_counter
     _mock_counter += 1
+
+    should_advance = (_mock_counter % 3 == 0)
 
     if _mock_counter % 2 == 0:
         return OracleResponse(
@@ -89,7 +95,7 @@ def _mock_oracle_response() -> OracleResponse:
                 ],
                 guidance_level="high",
             ),
-            game_update=GameUpdate(score_delta=5, advance_phase=False),
+            game_update=GameUpdate(score_delta=5, advance_phase=should_advance),
         )
     else:
         return OracleResponse(
@@ -108,7 +114,7 @@ def _mock_oracle_response() -> OracleResponse:
                 ],
                 guidance_level="none",
             ),
-            game_update=GameUpdate(score_delta=10, advance_phase=False),
+            game_update=GameUpdate(score_delta=10, advance_phase=should_advance),
         )
 
 
@@ -136,7 +142,7 @@ async def handle_emotion_data(session_id: str, signal: EmotionSignal) -> None:
 
     1. Push to buffer
     2. Build a Contract 4 timeline entry and store in Redis
-    3. Derive UI from emotion and broadcast ui_update if it changed
+    3. (oracle-only mode) Emotion → buffer only; UI updates come from oracle-brain, not here
     4. Save updated state
     """
     ts_start = time.monotonic()
@@ -145,34 +151,31 @@ async def handle_emotion_data(session_id: str, signal: EmotionSignal) -> None:
     if state is None or not state.is_active:
         return
 
-    # 1 — update buffer
+    # 1 — update buffer (emotion data still needed for Contract 2 snapshots)
     EmotionProcessor.push_to_buffer(state, signal)
 
-    # 2 — Contract 4 timeline entry
+    # 2 — Contract 4 timeline entry (still recorded for debrief)
     entry = EmotionProcessor.build_timeline_entry(signal, state.phase)
     await redis_client.append_timeline(session_id, entry)
 
-    # 3 — derive UI from emotion and broadcast if it changed
-    prev_ui = await redis_client.load_prev_ui(session_id)
-    current_ui = prev_ui.ui_commands if prev_ui else UICommands()
-    derived_ui = EmotionProcessor.derive_ui_from_emotion(signal, current_ui)
-
-    if derived_ui.complexity != current_ui.complexity or derived_ui.color_mood != current_ui.color_mood:
-        logger.info(
-            "[emotion→UI] session=%s  stress=%.2f  focus=%.2f  complexity=%s→%s  mood=%s→%s",
-            session_id,
-            signal.emotions.stress,
-            signal.emotions.focus,
-            current_ui.complexity.value,
-            derived_ui.complexity.value,
-            current_ui.color_mood.value,
-            derived_ui.color_mood.value,
-        )
-        await ws_handler.broadcast(session_id, WSUIUpdate(data=derived_ui))
-        await redis_client.save_prev_ui(
-            session_id,
-            PreviousUIState(ui_commands=derived_ui, voice_style=VoiceStyle.neutral),
-        )
+    # 3 — Broadcast emotion data to frontend so its local emotionEngine can
+    #     drive real-time UI changes (color_mood, complexity) between oracle turns.
+    await ws_handler.broadcast(session_id, {
+        "type": "emotion_update",
+        "data": {
+            "timestamp": signal.timestamp,
+            "emotions": signal.emotions.model_dump(),
+            "dominant": signal.dominant,
+            "face_detected": signal.face_detected,
+        },
+    })
+    logger.debug(
+        "[emotion broadcast] session=%s  stress=%.2f  focus=%.2f  dominant=%s",
+        session_id,
+        signal.emotions.stress,
+        signal.emotions.focus,
+        signal.dominant,
+    )
 
     # 4 — persist state
     await gsm.save_state(state)
@@ -202,21 +205,32 @@ async def handle_player_speech(session_id: str, text: str) -> None:
     6. Broadcast WS messages
     """
     ts_start = time.monotonic()
-    logger.info("Player speech received for %s: %s", session_id, text[:80])
+    logger.info("▶ [PHASE 1/6] player_speech received  session=%s  text=%r", session_id, text[:80])
 
     state = await gsm.get_state(session_id)
     if state is None:
-        logger.warning("No state for session %s — ignoring speech", session_id)
+        logger.error("✗ [PHASE 1/6] DROPPED — no state in Redis for session %s", session_id)
         return
-    if not state.is_active:
-        logger.info("Session %s not active — ignoring speech", session_id)
+    if state.phase == Phase.debrief:
+        logger.info("✗ [PHASE 1/6] DROPPED — game already ended (debrief phase)  session=%s", session_id)
         return
+    logger.info(
+        "✔ [PHASE 1/6] state OK  session=%s  phase=%s  time=%ds  active=%s  emotion_buffer_size=%d",
+        session_id, state.phase.value, state.time_remaining, state.is_active, len(state.emotion_buffer),
+    )
 
     # Record player's message in history
     gsm.add_to_history(state, "player", text)
 
-    # ----- Step 1: Build Contract 2 -----
+    # ----- Step 2: Build Contract 2 -----
     snapshot = EmotionProcessor.build_snapshot(state)
+    logger.info(
+        "▶ [PHASE 2/6] building Contract 2  session=%s  has_emotion=%s  trend=%s  avg_stress=%.2f",
+        session_id,
+        snapshot.current is not None,
+        snapshot.trend.value,
+        snapshot.avg_stress_30s,
+    )
     context = OracleContext(
         game_state=GameStateSnapshot(
             phase=state.phase,
@@ -228,19 +242,32 @@ async def handle_player_speech(session_id: str, text: str) -> None:
         player_input=text,
         conversation_history=state.conversation_history,
     )
-    logger.debug("Contract 2 built for %s: phase=%s trend=%s", session_id, state.phase.value, snapshot.trend.value)
+    logger.info("✔ [PHASE 2/6] Contract 2 built  history_len=%d", len(state.conversation_history))
 
-    # ----- Step 2: Call Component B (or mock) -----
+    # ----- Step 3: Call Component B (oracle-brain / Claude) -----
+    logger.info("▶ [PHASE 3/6] calling oracle-brain  mock_mode=%s", settings.mock_mode)
     oracle_resp: OracleResponse
     if settings.mock_mode:
         oracle_resp = _mock_oracle_response()
-        logger.info("MOCK mode — using canned Contract 3")
+        logger.info("✔ [PHASE 3/6] MOCK response used")
     else:
         oracle_resp = await _call_component_b(context)
+    logger.info(
+        "✔ [PHASE 3/6] oracle response received  voice_style=%s  complexity=%s  text=%r",
+        oracle_resp.oracle_response.voice_style.value,
+        oracle_resp.ui_commands.complexity.value,
+        oracle_resp.oracle_response.text[:80],
+    )
 
-    # ----- Step 3: Apply game updates -----
+    # ----- Step 4: Apply game updates -----
     gsm.add_to_history(state, "oracle", oracle_resp.oracle_response.text)
     phase_advanced = gsm.apply_game_update(state, oracle_resp.game_update)
+    logger.info(
+        "▶ [PHASE 4/6] game update applied  score_delta=%s  advance_phase=%s  new_phase=%s",
+        oracle_resp.game_update.score_delta,
+        oracle_resp.game_update.advance_phase,
+        state.phase.value,
+    )
 
     # ----- Step 4: Detect adaptation -----
     prev_ui = await redis_client.load_prev_ui(session_id)
@@ -265,8 +292,31 @@ async def handle_player_speech(session_id: str, text: str) -> None:
     # ----- Step 5: Persist state -----
     await gsm.save_state(state)
 
-    # ----- Step 6: Broadcast WS messages -----
-    # ORACLE speech → Component A (Tavus TTS)
+    # ----- Step 5a: Broadcast game state update -----
+    await ws_handler.broadcast(
+        session_id,
+        {
+            "type": "game_state_update",
+            "current_score": state.current_score,
+            "decisions_made": state.decisions_made,
+            "phase": state.phase.value,
+            "time_remaining": state.time_remaining,
+        },
+    )
+
+    # ----- Step 5/6: Broadcast WS messages -----
+    from app import ws_handler as _wsh
+    conn_count = len(_wsh._connections.get(session_id, set()))
+    logger.info(
+        "▶ [PHASE 5/6] broadcasting oracle_speech  session=%s  ws_connections=%d  text=%r",
+        session_id, conn_count, oracle_resp.oracle_response.text[:80],
+    )
+    if conn_count == 0:
+        logger.error(
+            "✗ [PHASE 5/6] NO WS CONNECTIONS — oracle_speech will not be delivered  session=%s  "
+            "hint: emotion-pipeline WS client may not be connected",
+            session_id,
+        )
     await ws_handler.broadcast(
         session_id,
         WSOracleSpeech(
@@ -274,7 +324,8 @@ async def handle_player_speech(session_id: str, text: str) -> None:
             voice_style=oracle_resp.oracle_response.voice_style.value,
         ),
     )
-    # UI update → Component C (React + CopilotKit)
+    logger.info("✔ [PHASE 5/6] oracle_speech broadcast sent")
+
     await ws_handler.broadcast(
         session_id,
         WSUIUpdate(data=oracle_resp.ui_commands),
@@ -309,11 +360,8 @@ async def handle_player_speech(session_id: str, text: str) -> None:
 
     elapsed = (time.monotonic() - ts_start) * 1000
     logger.info(
-        "Orchestration complete for %s in %.0fms  score=%d  phase=%s",
-        session_id,
-        elapsed,
-        state.current_score,
-        state.phase.value,
+        "✔ [PHASE 6/6] orchestration complete  session=%s  %.0fms  score=%d  phase=%s",
+        session_id, elapsed, state.current_score, state.phase.value,
     )
 
 

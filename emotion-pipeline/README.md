@@ -28,26 +28,43 @@ export SESSION_ID="<session_id>"
 python emotion-pipeline/daily_listener.py --log-all --backend-ws "$BACKEND_WS_URL" --session-id "$SESSION_ID"
 ```
 
-## Tavus persona (Full Pipeline + Raven)
+## Tavus persona (Full Pipeline + Raven + Custom LLM)
 
-To enable perception in `conversation.utterance` events, use Full Pipeline with Raven.
-This repo includes a starter persona config:
+SPECTRA uses Full Pipeline mode with Raven-1 perception **and** a Custom LLM
+that routes to our backend instead of Tavus's built-in LLM.  This keeps
+perception + STT active while preventing Tavus from generating its own
+responses (all speech is delivered via `conversation.echo`).
 
-`emotion-pipeline/tavus_persona.json`
+> **Why not Echo mode?** Tavus docs say echo mode is "incompatible with
+> perception and speech recognition layers".  SPECTRA needs Raven-1 for
+> emotion detection, so we use Custom LLM mode instead.
 
-Create a persona with:
+### 1. Start an ngrok tunnel to your backend
 
 ```bash
-curl -X POST https://api.tavus.io/v2/personas \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: $TAVUS_API_KEY" \
-  --data @emotion-pipeline/tavus_persona.json
+ngrok http 8000   # note the https://xxxx.ngrok.io URL
 ```
 
-Then create a conversation using the returned `persona_id` and your `replica_id`:
+### 2. Create / update the persona
 
 ```bash
-curl -X POST https://api.tavus.io/v2/conversations \
+export TAVUS_API_KEY="tvus_..."
+export BACKEND_PUBLIC_URL="https://xxxx.ngrok.io"
+
+# Create new persona
+./emotion-pipeline/update_persona.sh
+
+# — or update existing —
+./emotion-pipeline/update_persona.sh p53b88f7ef1e
+```
+
+The script replaces `$$BACKEND_PUBLIC_URL$$` in `tavus_persona.json` and
+calls the Tavus API.
+
+### 3. Create a conversation
+
+```bash
+curl -X POST https://tavusapi.com/v2/conversations \
   -H "Content-Type: application/json" \
   -H "x-api-key: $TAVUS_API_KEY" \
   -d '{

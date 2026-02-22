@@ -10,6 +10,8 @@ export type WsInbound =
   | { type: "phase_change"; phase: Phase }
   | { type: "oracle_said"; text: string; voice_style: OracleResponse["voice_style"] }
   | { type: "game_end"; final_score: number }
+  | { type: "emotion_update"; data: EmotionContract1 }
+  | { type: "game_state_update"; current_score: number; decisions_made: number; phase: Phase; time_remaining: number }
   // optional: backend can push timeline points live too
   | { type: "timeline_point"; data: { t: number; phase: Phase; stress: number; focus: number; adaptation?: string | null } };
 
@@ -45,6 +47,10 @@ function isWsInbound(msg: any): msg is WsInbound {
       return typeof msg.text === "string";
     case "game_end":
       return typeof msg.final_score === "number";
+    case "emotion_update":
+      return isObject(msg.data) && isObject(msg.data.emotions);
+    case "game_state_update":
+      return typeof msg.current_score === "number";
     case "timeline_point":
       return isObject(msg.data) && typeof msg.data.t === "number";
     default:

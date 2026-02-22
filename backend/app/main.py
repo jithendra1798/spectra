@@ -23,6 +23,7 @@ from app import redis_client
 from app import ws_handler
 from app.routes.session import router as session_router
 from app.routes.timeline import router as timeline_router
+from app.routes.llm_proxy import router as llm_proxy_router
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -84,6 +85,7 @@ app.add_middleware(
 # REST routes
 app.include_router(session_router)
 app.include_router(timeline_router)
+app.include_router(llm_proxy_router)
 
 
 # ---------------------------------------------------------------------------

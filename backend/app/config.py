@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     tavus_persona_id: str = "p53b88f7ef1e"
     tavus_replica_id: str = "r5dc7c7d0bcb"
 
+    # Public URL of this backend that Tavus can reach (for custom LLM proxy).
+    # In production this should be an ngrok / Cloudflare tunnel URL.
+    # The persona JSON uses this as the LLM base_url.
+    backend_public_url: str = "https://your-tunnel.ngrok.io"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @property

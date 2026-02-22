@@ -42,7 +42,7 @@ MODEL = os.environ.get("ORACLE_MODEL", "claude-sonnet-4-6")
 # ── Logging ───────────────────────────────────────────────────────────────────
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
     datefmt="%H:%M:%S",
     stream=sys.stdout,
@@ -64,14 +64,27 @@ def _extract_json(text: str) -> dict:
 
 async def call_claude(contract2: dict) -> dict:
     """Send Contract 2 to Claude and parse Contract 3 response (async, non-blocking)."""
+    logger.info("[claude] creating new AsyncAnthropic client (model=%s)", MODEL)
     client = anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    payload_str = json.dumps(contract2)
+    logger.debug("[claude] → sending %d chars to Claude:\n%s", len(payload_str), payload_str[:500])
     result = await client.messages.create(
         model=MODEL,
         max_tokens=1024,
         system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": json.dumps(contract2)}],
+        messages=[{"role": "user", "content": payload_str}],
     )
-    return _extract_json(result.content[0].text)
+    raw_text = result.content[0].text
+    logger.info("[claude] ← raw response (%d chars): %s", len(raw_text), raw_text[:300])
+    parsed = _extract_json(raw_text)
+    logger.info("[claude] ← parsed: complexity=%s  mood=%s  guidance=%s  score_delta=%s  text=%r",
+        parsed.get("ui_commands", {}).get("complexity"),
+        parsed.get("ui_commands", {}).get("color_mood"),
+        parsed.get("ui_commands", {}).get("guidance_level"),
+        parsed.get("game_update", {}).get("score_delta"),
+        parsed.get("oracle_response", {}).get("text", "")[:80],
+    )
+    return parsed
 
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────

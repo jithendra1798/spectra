@@ -41,6 +41,8 @@ export type SpectraState = {
   connected: boolean;
   phase: Phase;
   timeRemaining: number;
+  currentScore: number;
+  decisionsMade: number;
   ui: UiCommands;
   oracle?: OracleResponse;
   comms: Array<{ role: "oracle" | "player"; text: string }>;
